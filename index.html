@@ -814,6 +814,7 @@
                             </button>
                             <p class="text-[11px] text-slate-500 mt-2">La convocatoria depende de tu media (OVR) y rendimiento. Cada partido internacional consume energía.</p>
                         </div>
+                        <div id="international-career-center" class="mt-5 pt-5 border-t border-slate-800"></div>
                         <div>
                             <h3 class="font-sport text-lg font-bold text-white mb-2">Historial internacional</h3>
                             <div id="national-history" class="space-y-2 text-sm text-slate-400">
@@ -1847,7 +1848,16 @@
             { id:'iffhsyoung', name:'IFFHS Mejor Joven del Mundo', org:'IFFHS', icon:'🌱', group:'Premios jóvenes', young:true },
             { id:'globesoccer', name:'Globe Soccer Mejor Jugador', org:'Globe Soccer Awards', icon:'🌟', group:'Premios mundiales' },
             { id:'globeyoung', name:'Globe Soccer Mejor Joven', org:'Globe Soccer Awards', icon:'🚀', group:'Premios jóvenes', young:true },
-            { id:'fifakeeper', name:'The Best FIFA al Mejor Portero', org:'FIFA', icon:'🧤', group:'Premios por posición', positions:['POR'] }
+            { id:'fifakeeper', name:'The Best FIFA al Mejor Portero', org:'FIFA', icon:'🧤', group:'Premios por posición', positions:['POR'] },
+            { id:'coachfifa', name:'The Best FIFA al Entrenador', org:'FIFA', icon:'🧠', group:'Premios de entrenadores', teamAward:true },
+            { id:'coachuefa', name:'Entrenador del Año UEFA', org:'UEFA', icon:'📋', group:'Premios de entrenadores', teamAward:true },
+            { id:'coachiffhs', name:'Entrenador del Año IFFHS', org:'IFFHS', icon:'🎓', group:'Premios de entrenadores', teamAward:true },
+            { id:'clubiffhs', name:'Mejor Club del Mundo', org:'IFFHS', icon:'🏟️', group:'Premios de clubes', teamAward:true },
+            { id:'clubglobe', name:'Mejor Club Globe Soccer', org:'Globe Soccer Awards', icon:'🌍', group:'Premios de clubes', teamAward:true },
+            { id:'african', name:'Jugador Africano del Año', org:'CAF', icon:'🌍', group:'Premios continentales' },
+            { id:'asian', name:'Jugador Asiático del Año', org:'AFC', icon:'🌏', group:'Premios continentales' },
+            { id:'concacaf', name:'Jugador del Año CONCACAF', org:'CONCACAF', icon:'🌎', group:'Premios continentales' },
+            { id:'conmebol', name:'Jugador del Año CONMEBOL', org:'CONMEBOL', icon:'🌎', group:'Premios continentales' }
         ];
 
         function getGalaPlayerScore(award, avgRating) {
@@ -1874,7 +1884,7 @@
             const rivalNames = ['Mateo Silva','Luca Moretti','Noah Williams','Thiago Costa','Hugo Martín','Ethan Brooks','Santiago Pérez','Kylian Diallo','Marco Fischer'];
             GALA_AWARDS.forEach(award => {
                 const playerScore = getGalaPlayerScore(award, avgRating);
-                const eligible = playerScore >= 48 && p.seasonStats.apps >= 4;
+                const eligible = !award.teamAward && playerScore >= 48 && p.seasonStats.apps >= 4;
                 const candidates = [];
                 if (eligible) candidates.push({ name:p.name, score:playerScore, isPlayer:true, club:playerClub.name });
                 for (let i=0; i<3; i++) {
@@ -2315,6 +2325,34 @@
             document.getElementById('national-history').innerHTML = history.length
                 ? history.slice().reverse().map(m => `<div class="flex flex-wrap justify-between gap-2 bg-slate-900/70 border border-slate-800 rounded-lg p-3"><span class="text-white font-semibold">${m.opponent}</span><span class="text-sky-300 font-bold">${m.score}</span><span class="text-slate-400">${m.competition}</span><span class="text-emerald-300">${m.rating} ⭐</span></div>`).join('')
                 : 'Todavía no has disputado partidos con tu selección.';
+            renderInternationalCenter();
+        }
+
+
+        const INTL_CONF = {'España':'UEFA','Francia':'UEFA','Alemania':'UEFA','Italia':'UEFA','Portugal':'UEFA','Inglaterra':'UEFA','Países Bajos':'UEFA','Argentina':'CONMEBOL','Brasil':'CONMEBOL','Colombia':'CONMEBOL','Uruguay':'CONMEBOL','Dominicana':'CONCACAF','México':'CONCACAF','Estados Unidos':'CONCACAF'};
+        const INTL_RIVALS = {UEFA:['Croacia','Bélgica','Suiza','Dinamarca','Suecia','Noruega'],CONMEBOL:['Chile','Ecuador','Paraguay','Perú','Venezuela','Bolivia'],CONCACAF:['Canadá','Costa Rica','Panamá','Jamaica','Honduras','Guatemala']};
+        function getInternationalCareer(){
+          const p=gameState.player;
+          if(!p.internationalCareer)p.internationalCareer={season:0,fixtures:[],callups:0,titles:[]};
+          const c=p.internationalCareer;
+          if(c.season!==gameState.season){
+            c.season=gameState.season;c.fixtures=[];c.callups=0;
+            const conf=INTL_CONF[p.nationality]||'CONCACAF',pool=(INTL_RIVALS[conf]||INTL_RIVALS.CONCACAF);
+            const add=(comp,stage,i)=>c.fixtures.push({id:'INT'+gameState.season+'-'+i,competition:comp,stage:stage,opponent:pool[(gameState.season+i)%pool.length],home:i%2===0,played:false});
+            add('Fecha FIFA','Amistoso',0);add('Fecha FIFA','Amistoso',1);
+            for(let i=0;i<4;i++)add('Clasificatorias mundialistas','Fase de grupos',i+2);
+            if(gameState.season%2===0){const cup=conf==='UEFA'?'Eurocopa':conf==='CONMEBOL'?'Copa América':'Copa Oro';['Grupos','Cuartos de final','Semifinal','Final'].forEach((x,i)=>add(cup,x,i+6));}
+            if(gameState.season%4===0)['Grupos','Octavos de final','Cuartos de final','Semifinal','Final'].forEach((x,i)=>add('Copa Mundial FIFA',x,i+10));
+          }
+          return c;
+        }
+        function renderInternationalCenter(){
+          const root=document.getElementById('international-career-center');if(!root)return;
+          const c=getInternationalCareer(),p=gameState.player,fs=c.fixtures,next=fs.find(f=>!f.played),conf=INTL_CONF[p.nationality]||'CONCACAF';
+          root.innerHTML='<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"><div class="rounded-xl bg-slate-900 p-3"><small class="text-slate-500">Confederación</small><div class="font-bold text-sky-300">'+conf+'</div></div><div class="rounded-xl bg-slate-900 p-3"><small class="text-slate-500">Calendario</small><div class="font-bold text-white">'+fs.filter(f=>f.played).length+'/'+fs.length+'</div></div><div class="rounded-xl bg-slate-900 p-3"><small class="text-slate-500">Convocatorias</small><div class="font-bold text-white">'+c.callups+'</div></div><div class="rounded-xl bg-slate-900 p-3"><small class="text-slate-500">Elegibilidad</small><div class="font-bold '+(p.ovr>=65?'text-emerald-300':'text-rose-300')+'">'+(p.ovr>=65?'Convocable':'Requiere 65 OVR')+'</div></div></div>'+
+          '<div class="rounded-xl border border-sky-900 bg-sky-950/30 p-4 mb-4"><div class="text-xs uppercase text-sky-300 font-bold">Próximo partido</div><div class="font-sport text-2xl font-bold text-white">'+(next?next.competition:'Calendario completado')+'</div><div class="text-sm text-slate-300">'+(next?next.stage+' · '+(next.home?'Local':'Visitante')+' vs '+next.opponent:'No quedan partidos internacionales.')+'</div></div>'+
+          '<h3 class="font-sport text-xl font-bold text-white mb-2">Calendario de la selección</h3><div class="space-y-2">'+fs.map((f,i)=>'<div class="flex justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3"><div><b class="text-xs text-white">'+(i+1)+'. '+f.competition+'</b><div class="text-[11px] text-slate-400">'+f.stage+' · '+(f.home?'Local':'Visitante')+' vs '+f.opponent+'</div></div><b class="text-[10px] '+(f.played?'text-emerald-300':'text-amber-300')+'">'+(f.played?'JUGADO':'PENDIENTE')+'</b></div>').join('')+'</div>'+
+          '<p class="text-[11px] text-slate-500 mt-3">Las competiciones continentales aparecen cada dos temporadas y la Copa Mundial cada cuatro. Los partidos se juegan con el motor interactivo.</p>';
         }
 
         function playNationalMatch() {
@@ -2322,8 +2360,13 @@
             const ns = p.nationalStats;
             if (p.ovr < 65) return showToast('Necesitas al menos 65 OVR para ser convocado.', 'warning');
             if (p.energy < 20) return showToast('No tienes suficiente energía para jugar con tu selección.', 'warning');
-            const opponent = NATIONAL_OPPONENTS[Math.floor(Math.random() * NATIONAL_OPPONENTS.length)];
-            const isHome = Math.random() >= 0.5;
+            const intlCareer=getInternationalCareer();
+            const fixture=intlCareer.fixtures.find(f=>!f.played);
+            if(!fixture)return showToast('Calendario internacional completado.', 'info');
+            const opponent=fixture.opponent;
+            const isHome=fixture.home;
+            fixture.played=true;
+            intlCareer.callups++;
             const homeName = isHome ? p.nationality : opponent;
             const awayName = isHome ? opponent : p.nationality;
             const palette = ['#0f766e','#1d4ed8','#991b1b','#7c3aed','#a16207'];
@@ -2334,9 +2377,7 @@
             });
             const homeClub = makeNationalSide(homeName, isHome ? 0 : 1);
             const awayClub = makeNationalSide(awayName, isHome ? 1 : 0);
-            const tournament = ns.caps % 8 === 7
-                ? (['España','Francia','Alemania','Italia','Portugal','Inglaterra','Países Bajos'].includes(p.nationality) ? 'Eurocopa' : p.nationality === 'Dominicana' ? 'Copa Oro' : 'Copa América')
-                : ns.caps % 4 === 3 ? 'Clasificatorias mundialistas' : 'Amistoso internacional';
+            const tournament = fixture.competition + ' · ' + fixture.stage;
             const match = { competition:tournament, opponent, played:false };
             gameState.liveMatch = {
                 match, homeClub, awayClub, isPlayerHome:isHome,
