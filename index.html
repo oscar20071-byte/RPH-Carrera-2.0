@@ -2379,15 +2379,52 @@
                             </div>
                         </div>
 
-                        <button data-club-id="${club.id}" data-salary="${offer.salary}"
-                            class="accept-transfer-btn px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold font-sport text-sm uppercase tracking-wider shadow cursor-pointer whitespace-nowrap">
-                            Aceptar Fichaje
-                        </button>
+                        <div class="flex flex-wrap gap-2">
+                            <button data-club-id="${club.id}" data-salary="${offer.salary}" data-role="${offer.role}"
+                                class="negotiate-transfer-btn px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs uppercase">
+                                Negociar
+                            </button>
+                            <button data-club-id="${club.id}" class="decline-transfer-btn px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-slate-300 font-bold text-xs uppercase">Rechazar</button>
+                            <button data-club-id="${club.id}" data-salary="${offer.salary}"
+                                class="accept-transfer-btn px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-xs uppercase shadow cursor-pointer whitespace-nowrap">Aceptar</button>
+                        </div>
                     </div>
                 `;
             }).join('');
 
             bindContractRenewal();
+            document.querySelectorAll('.decline-transfer-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    gameState.transferOffers = gameState.transferOffers.filter(o => o.clubId !== btn.dataset.clubId);
+                    renderTransfersTab();
+                    showToast('Has rechazado la oferta del club.', 'info');
+                });
+            });
+            document.querySelectorAll('.negotiate-transfer-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const offer = gameState.transferOffers.find(o => o.clubId === btn.dataset.clubId);
+                    const club = gameState.clubs.find(c => c.id === btn.dataset.clubId);
+                    if (!offer || !club) return;
+                    const requested = Number(prompt('Salario semanal que deseas solicitar (oferta actual: ' + formatMoney(offer.salary) + '):', String(Math.round(offer.salary * 1.12))));
+                    if (!Number.isFinite(requested) || requested <= 0) return;
+                    const roleChoice = prompt('Rol que deseas solicitar: escribe "Titular" o "Jugador importante". Rol ofrecido: ' + (offer.role || 'Rotación'), offer.role || 'Titular');
+                    const requestedRole = ['Titular', 'Jugador importante'].includes(roleChoice) ? roleChoice : offer.role;
+                    const increase = requested / Math.max(1, offer.salary);
+                    const roleDemand = requestedRole === 'Titular' && offer.role !== 'Titular' && offer.role !== 'Estrella titular';
+                    const acceptanceChance = Math.max(8, Math.min(92, 88 - Math.max(0, increase - 1) * 210 - (roleDemand ? 24 : 0) + (club.ovr >= gameState.player.ovr ? 5 : 0)));
+                    if (Math.random() * 100 <= acceptanceChance && requested <= offer.salary * 1.35 && (!roleDemand || gameState.player.ovr >= club.ovr - 2)) {
+                        offer.salary = Math.round(requested);
+                        offer.role = requestedRole;
+                        offer.negotiated = true;
+                        renderTransfersTab();
+                        showToast('El club aceptó tus condiciones. Ya puedes aceptar el fichaje.', 'success');
+                    } else {
+                        gameState.transferOffers = gameState.transferOffers.filter(o => o.clubId !== btn.dataset.clubId);
+                        renderTransfersTab();
+                        showToast('El club rechazó la negociación y retiró su oferta.', 'error');
+                    }
+                });
+            });
             document.querySelectorAll('.accept-transfer-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const targetClubId = btn.dataset.clubId;
