@@ -1033,6 +1033,7 @@
                 ovr: 72,
                 value: 3500000,
                 wage: 8500,
+                contract: { seasonsRemaining: 2, salary: 8500, freeAgent: false },
                 seasonStats: { apps: 0, goals: 0, assists: 0, ratingSum: 0 },
                 careerStats: { apps: 0, goals: 0, assists: 0 },
                 trophies: [],
@@ -2135,6 +2136,19 @@
                 </div>
             `);
 
+            // Fin del contrato: el jugador queda libre si no renueva.
+            p.contract = p.contract || { seasonsRemaining: 2, salary: p.wage || 0, freeAgent: false };
+            if (!p.contract.freeAgent) {
+                p.contract.seasonsRemaining = Math.max(0, (Number(p.contract.seasonsRemaining) || 0) - 1);
+                if (p.contract.seasonsRemaining === 0) {
+                    p.contract.freeAgent = true;
+                    p.wage = 0;
+                    seasonEvents.push('<div class="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 font-semibold">📄 Tu contrato terminó. Ahora eres agente libre: puedes negociar una renovación o aceptar una oferta de otro club.</div>');
+                } else {
+                    seasonEvents.push('<div class="p-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 font-semibold">📄 Tu contrato tiene ' + p.contract.seasonsRemaining + ' temporada(s) restante(s).</div>');
+                }
+            }
+
             const agingMessage = applySeasonalAging();
             if (agingMessage) seasonEvents.push('<div class="p-3 rounded-xl bg-violet-500/15 border border-violet-500/40 text-violet-200 font-semibold">📈 ' + agingMessage + '</div>');
 
@@ -2153,6 +2167,7 @@
             p.skillPoints += 2;
             p.seasonStats = { apps: 0, goals: 0, assists: 0, ratingSum: 0 };
             updatePlayerFinances();
+            if (p.contract && !p.contract.freeAgent) p.wage = Number(p.contract.salary) || p.wage;
 
             // Reiniciar estadísticas de tabla de todos los clubes
             gameState.clubs.forEach(c => {
@@ -2284,9 +2299,50 @@
             });
         }
 
+        function bindContractRenewal() {
+            const btn = document.getElementById('renew-contract-btn');
+            if (!btn) return;
+            btn.addEventListener('click', () => {
+                const p = gameState.player;
+                const club = getPlayerClub();
+                const stats = p.seasonStats || {};
+                const performance = Math.min(0.12, ((Number(stats.goals)||0) * 0.003 + (Number(stats.assists)||0) * 0.002 + (Number(stats.apps)||0) * 0.001));
+                const base = Math.max(Number(p.wage)||0, Number(p.contract && p.contract.salary)||0, 2500);
+                const renewedSalary = Math.round(base * (p.contract && p.contract.freeAgent ? 1.04 : 1.06 + performance));
+                p.wage = renewedSalary;
+                p.contract = { seasonsRemaining: 2, salary: renewedSalary, freeAgent: false };
+                p.morale = Math.min(100, (Number(p.morale)||75) + 8);
+                renderAllHub();
+                showToast('Contrato renovado con ' + club.name + ' por 2 temporadas. Nuevo salario: ' + formatMoney(renewedSalary) + '/sem.', 'success');
+            });
+        }
+
         function renderTransfersTab() {
             const container = document.getElementById('transfer-offers-container');
             const offers = gameState.transferOffers;
+            const p = gameState.player;
+            p.contract = p.contract || { seasonsRemaining: 2, salary: p.wage || 0, freeAgent: false };
+            const remaining = Math.max(0, Number(p.contract.seasonsRemaining) || 0);
+            const contractPanel = `
+                <div class="mb-4 rounded-2xl border border-slate-700 bg-slate-800/70 p-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Mi contrato actual</div>
+                            <div class="mt-1 text-lg font-extrabold text-white">${p.contract.freeAgent ? 'Agente libre' : remaining + ' temporada(s) restante(s)'}</div>
+                            <div class="text-xs text-slate-300 mt-1">${p.contract.freeAgent ? 'No tienes contrato vigente. Puedes firmar con un club.' : 'Salario: ' + formatMoney(p.contract.salary || p.wage) + ' por semana'}</div>
+                        </div>
+                        ${(!p.contract.freeAgent && remaining > 1) ? '<span class="text-xs text-emerald-300 font-bold">Contrato vigente</span>' : '<button id="renew-contract-btn" class="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs uppercase">Renovar 2 temporadas</button>'}
+                    </div>
+                </div>`;
+            if (!offers || offers.length === 0) {
+                container.innerHTML = contractPanel + `
+                    <div class="text-center py-8 bg-slate-900/60 rounded-2xl border border-slate-800">
+                        <i class="fa-solid fa-envelope-open text-3xl text-slate-600 mb-2"></i>
+                        <p class="text-sm text-slate-400">No hay ofertas activas en este momento. Sigue jugando y subiendo tu OVR para atraer clubes grandes.</p>
+                    </div>`;
+                bindContractRenewal();
+                return;
+            }
 
             if (!offers || offers.length === 0) {
                 container.innerHTML = `
@@ -2298,7 +2354,7 @@
                 return;
             }
 
-            container.innerHTML = offers.map(offer => {
+            container.innerHTML = contractPanel + offers.map(offer => {
                 const club = gameState.clubs.find(c => c.id === offer.clubId);
                 if (!club) return '';
                 return `
@@ -2329,6 +2385,7 @@
                 `;
             }).join('');
 
+            bindContractRenewal();
             document.querySelectorAll('.accept-transfer-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const targetClubId = btn.dataset.clubId;
@@ -2338,6 +2395,7 @@
                     playSound('goal');
                     gameState.player.clubId = targetClubId;
                     gameState.player.wage = newSalary;
+                    gameState.player.contract = { seasonsRemaining: 2, salary: newSalary, freeAgent: false };
                     gameState.player.morale = 85;
                     gameState.viewingStandingsDiv = targetClub.div;
                     generateTransferOffers();
@@ -2644,6 +2702,13 @@
             const p = data.player;
             if (!p.attrs || !p.seasonStats || !p.careerStats) return false;
             if (!Array.isArray(p.trophies) || !Array.isArray(p.history)) return false;
+            p.contract = p.contract && typeof p.contract === 'object' ? p.contract : { seasonsRemaining: 2, salary: Number(p.wage)||8500, freeAgent: false };
+            p.contract.seasonsRemaining = Math.max(0, Math.min(5, Number(p.contract.seasonsRemaining) || 0));
+            p.contract.salary = Math.max(0, Number(p.contract.salary) || Number(p.wage) || 0);
+            p.contract.freeAgent = Boolean(p.contract.freeAgent);
+            if (p.contract.freeAgent) p.wage = 0;
+            else if (p.contract.seasonsRemaining === 0) p.contract.seasonsRemaining = 1;
+            else p.wage = p.contract.salary;
             p.nationalStats = p.nationalStats || { caps:0, goals:0, assists:0, trophies:0, history:[] };
             p.nationalStats.history = Array.isArray(p.nationalStats.history) ? p.nationalStats.history : [];
             p.injuryMatches = Math.max(0, Number(p.injuryMatches) || 0);
