@@ -1,0 +1,2400 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPH Carrera 2.0 - Modo Carrera de Jugador</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Rajdhani para estética deportiva -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Rajdhani:wght@600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js para efectos de sonido sintéticos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        sport: ['Rajdhani', 'sans-serif'],
+                    },
+                    colors: {
+                        stadium: {
+                            950: '#060913',
+                            900: '#0b1120',
+                            800: '#131c31',
+                            700: '#1e293b',
+                        },
+                        neon: {
+                            green: '#10b981',
+                            emerald: '#34d399',
+                            gold: '#f59e0b',
+                            amber: '#fbbf24',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #060913;
+            color: #f8fafc;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.08) 0%, transparent 45%),
+                radial-gradient(circle at 85% 85%, rgba(245, 158, 11, 0.07) 0%, transparent 45%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .font-sport {
+            font-family: 'Rajdhani', sans-serif;
+        }
+
+        /* Tarjeta estilo EA FC / FIFA Ultimate Team */
+        .fut-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #020617 100%);
+            border: 2px solid rgba(245, 158, 11, 0.4);
+            box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fut-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .fut-card-elite {
+            background: linear-gradient(135deg, #272011 0%, #111827 55%, #090d16 100%);
+            border: 2px solid #fbbf24;
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);
+        }
+
+        /* Animaciones */
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 12px rgba(16, 185, 129, 0.3); }
+            50% { box-shadow: 0 0 24px rgba(16, 185, 129, 0.65); }
+        }
+
+        .glow-green {
+            animation: pulseGlow 2.5s infinite;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.35s ease-out forwards;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b1120;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #10b981;
+        }
+
+        .glass-panel {
+            background: rgba(19, 28, 49, 0.78);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-emerald-500 selection:text-slate-950">
+
+    <!-- Notificación Toast Flotante (Reemplaza cualquier alert) -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- Modal de Resumen de Fin de Temporada / Eventos Importantes -->
+    <div id="season-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="glass-panel border border-amber-500/40 rounded-2xl max-w-lg w-full p-6 shadow-2xl animate-slide-up">
+            <div class="flex items-center justify-between border-b border-slate-700/80 pb-4 mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400">
+                        <i class="fa-solid fa-trophy text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 id="modal-title" class="font-sport text-2xl font-bold text-white uppercase tracking-wide">Fin de Temporada</h3>
+                        <p id="modal-subtitle" class="text-xs text-slate-400">Resumen anual y movimientos de división</p>
+                    </div>
+                </div>
+            </div>
+            <div id="modal-body" class="space-y-3 text-sm text-slate-200 max-h-[60vh] overflow-y-auto pr-1">
+                <!-- Contenido dinámico -->
+            </div>
+            <div class="mt-6 pt-4 border-t border-slate-700/80 flex justify-end">
+                <button id="modal-close-btn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold tracking-wide transition shadow-lg cursor-pointer">
+                    Continuar Carrera <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- PANTALLA 1: CREACIÓN DE JUGADOR                                       -->
+    <!-- ===================================================================== -->
+    <div id="creation-screen" class="min-h-screen flex flex-col justify-center items-center p-4 sm:p-6">
+        <div class="max-w-4xl w-full">
+            <!-- Header Título -->
+            <div class="text-center mb-8 animate-slide-up">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-3">
+                    <i class="fa-solid fa-futbol"></i> Simulador de Carrera Profesional
+                </div>
+                <h1 class="font-sport text-5xl sm:text-6xl font-extrabold tracking-tight text-white uppercase">
+                    RPH <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-400">CARRERA</span>
+                </h1>
+                <p class="text-slate-400 mt-2 text-sm sm:text-base max-w-xl mx-auto">
+                    Forja tu leyenda desde la Segunda División hasta conquistar la gloria máxima en Primera.
+                </p>
+            </div>
+
+            <!-- Contenedor Principal Creación -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <!-- Formulario de Datos -->
+                <div class="lg:col-span-7 glass-panel rounded-2xl p-6 shadow-xl space-y-5">
+                    <h2 class="font-sport text-2xl font-bold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-id-card text-emerald-400"></i> Ficha del Jugador
+                    </h2>
+
+                    <!-- Nombre -->
+                    <div>
+                        <label for="player-name-input" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Nombre del Futbolista</label>
+                        <input type="text" id="player-name-input" maxlength="24" placeholder="Ej. Mateo Silva" value="Alex Rph"
+                            class="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-white font-medium focus:outline-none focus:border-emerald-500 transition">
+                    </div>
+
+                    <!-- Posición y Edad -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="player-pos-select" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Posición</label>
+                            <select id="player-pos-select" class="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-white font-medium focus:outline-none focus:border-emerald-500 transition cursor-pointer">
+                                <optgroup label="Portería"><option value="POR">Portero (POR)</option></optgroup>
+                                <optgroup label="Defensa">
+                                    <option value="DFC">Defensa central (DFC)</option>
+                                    <option value="LI">Lateral izquierdo (LI)</option>
+                                    <option value="LD">Lateral derecho (LD)</option>
+                                    <option value="CAI">Carrilero izquierdo (CAI)</option>
+                                    <option value="CAD">Carrilero derecho (CAD)</option>
+                                </optgroup>
+                                <optgroup label="Mediocampo">
+                                    <option value="MCD">Mediocentro defensivo (MCD)</option>
+                                    <option value="MC">Mediocentro (MC)</option>
+                                    <option value="MCO">Mediocentro ofensivo (MCO)</option>
+                                    <option value="MI">Mediocampista izquierdo (MI)</option>
+                                    <option value="MD">Mediocampista derecho (MD)</option>
+                                </optgroup>
+                                <optgroup label="Ataque">
+                                    <option value="EI">Extremo izquierdo (EI)</option>
+                                    <option value="ED">Extremo derecho (ED)</option>
+                                    <option value="SD">Segundo delantero (SD)</option>
+                                    <option value="DC">Delantero centro (DC)</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="player-age-select" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Edad Inicial</label>
+                            <select id="player-age-select" class="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-white font-medium focus:outline-none focus:border-emerald-500 transition cursor-pointer">
+                                <option value="15">15 años</option>
+                                <option value="16">16 años</option>
+                                <option value="17" selected>17 años</option>
+                                <option value="18">18 años</option>
+                                <option value="19">19 años</option>
+                                <option value="20">20 años</option>
+                                <option value="21">21 años</option>
+                                <option value="22">22 años</option>
+                                <option value="23">23 años</option>
+                                <option value="24">24 años</option>
+                                <option value="25">25 años</option>
+                                <option value="26">26 años</option>
+                                <option value="27">27 años</option>
+                                <option value="28">28 años</option>
+                                <option value="29">29 años</option>
+                                <option value="30">30 años</option>
+                                <option value="31">31 años</option>
+                                <option value="32">32 años</option>
+                                <option value="33">33 años</option>
+                                <option value="34">34 años</option>
+                                <option value="35">35 años</option>
+                                <option value="36">36 años</option>
+                                <option value="37">37 años</option>
+                                <option value="38">38 años</option>
+                                <option value="39">39 años</option>
+                                <option value="40">40 años</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Nacionalidad para la carrera integrada con selecciones -->
+                    <div>
+                        <label for="player-nationality-select" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Nacionalidad / Selección</label>
+                        <select id="player-nationality-select" class="w-full px-4 py-3 rounded-xl bg-slate-900/90 border border-slate-700 text-white font-medium focus:outline-none focus:border-emerald-500 transition cursor-pointer">
+                            <option value="Dominicana">🇩🇴 República Dominicana</option>
+                            <option value="Argentina">🇦🇷 Argentina</option>
+                            <option value="Brasil">🇧🇷 Brasil</option>
+                            <option value="España">🇪🇸 España</option>
+                            <option value="Francia">🇫🇷 Francia</option>
+                            <option value="Alemania">🇩🇪 Alemania</option>
+                            <option value="Inglaterra">🏴 Inglaterra</option>
+                            <option value="Italia">🇮🇹 Italia</option>
+                            <option value="Portugal">🇵🇹 Portugal</option>
+                            <option value="Uruguay">🇺🇾 Uruguay</option>
+                            <option value="Colombia">🇨🇴 Colombia</option>
+                            <option value="México">🇲🇽 México</option>
+                            <option value="Estados Unidos">🇺🇸 Estados Unidos</option>
+                            <option value="Países Bajos">🇳🇱 Países Bajos</option>
+                        </select>
+                    </div>
+
+                    <!-- Selección de Club Inicial (Segunda División) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">Elige tu Club Inicial (Segunda División)</label>
+                            <span class="text-xs text-amber-400 font-semibold"><i class="fa-solid fa-shield-halved mr-1"></i>10 Clubes Disponibles</span>
+                        </div>
+                        <div id="starter-clubs-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
+                            <!-- Se llena dinámicamente con los clubes de 2da División -->
+                        </div>
+                    </div>
+
+                    <button id="start-career-btn" class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold font-sport text-xl uppercase tracking-wider shadow-lg glow-green transition transform active:scale-[0.99] cursor-pointer">
+                        Firmar Contrato y Comenzar <i class="fa-solid fa-pen-nib ml-2"></i>
+                    </button>
+                </div>
+
+                <!-- Vista Previa de Carta -->
+                <div class="lg:col-span-5 flex flex-col items-center">
+                    <div class="fut-card rounded-3xl p-6 w-full max-w-[310px] text-center shadow-2xl">
+                        <div class="flex justify-between items-start">
+                            <div class="text-left">
+                                <div id="preview-ovr" class="font-sport text-5xl font-extrabold text-amber-400 leading-none">72</div>
+                                <div id="preview-pos" class="font-sport text-xl font-bold text-white tracking-wider mt-0.5">DEL</div>
+                            </div>
+                            <div id="preview-club-badge" class="w-12 h-12 rounded-xl flex items-center justify-center shadow-md">
+                                <!-- Escudo dinámico -->
+                            </div>
+                        </div>
+
+                        <!-- Silueta Avatar -->
+                        <div class="my-4 relative flex justify-center">
+                            <div class="w-28 h-28 rounded-full bg-gradient-to-b from-slate-700/60 to-slate-900 border-2 border-amber-500/30 flex items-center justify-center shadow-inner">
+                                <i class="fa-solid fa-user-astronaut text-5xl text-slate-300"></i>
+                            </div>
+                            <span id="preview-age-badge" class="absolute -bottom-2 px-3 py-0.5 rounded-full bg-slate-800 border border-slate-600 text-xs font-bold text-emerald-400">
+                                17 AÑOS
+                            </span>
+                        </div>
+
+                        <h3 id="preview-name" class="font-sport text-2xl font-extrabold text-white uppercase tracking-wide truncate border-b border-slate-700/80 pb-2">
+                            Alex Rph
+                        </h3>
+                        <p id="preview-club-name" class="text-xs font-semibold text-amber-400 uppercase tracking-widest mt-1.5 mb-4 truncate">
+                            Inter Galaxy
+                        </p>
+
+                        <!-- Atributos Preview -->
+                        <div id="preview-stats-grid" class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-left font-sport text-base px-2">
+                            <!-- Se llena dinámicamente -->
+                        </div>
+                    </div>
+
+                    <div class="mt-4 glass-panel rounded-xl p-3.5 w-full max-w-[310px] text-xs text-slate-400 flex items-center gap-3">
+                        <i class="fa-solid fa-circle-info text-emerald-400 text-lg"></i>
+                        <p>Comienzas con <strong class="text-white">72 OVR</strong>. Juega partidos, gana puntos de habilidad y asciende a Primera División.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- PANTALLA 2: HUB PRINCIPAL DE CARRERA                                  -->
+    <!-- ===================================================================== -->
+    <div id="career-hub" class="hidden min-h-screen flex flex-col">
+        <!-- Barra Superior de Estado -->
+        <header class="sticky top-0 z-30 glass-panel border-b border-slate-800/90 px-4 py-3">
+            <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                <!-- Logo y Temporada -->
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-slate-950 font-sport font-extrabold text-xl shadow">
+                        R
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-sport font-extrabold text-xl tracking-wide text-white uppercase">RPH CARRERA</span>
+                            <span id="hub-season-badge" class="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold">
+                                Temp. 1
+                            </span>
+                        </div>
+                        <p id="hub-matchday-text" class="text-xs text-slate-400 font-medium">Jornada 1 de 18 • Segunda División</p>
+                    </div>
+                </div>
+
+                <!-- Indicadores Rápidos del Jugador -->
+                <div class="flex items-center gap-2 sm:gap-4 flex-wrap">
+                    <!-- Energía -->
+                    <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl">
+                        <i class="fa-solid fa-bolt text-emerald-400 text-xs"></i>
+                        <div>
+                            <div class="text-[10px] text-slate-400 uppercase font-bold leading-none">Energía</div>
+                            <div id="hub-energy-val" class="text-xs font-bold text-white mt-0.5">100%</div>
+                        </div>
+                    </div>
+
+                    <!-- Confianza DT -->
+                    <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl">
+                        <i class="fa-solid fa-handshake text-sky-400 text-xs"></i>
+                        <div>
+                            <div class="text-[10px] text-slate-400 uppercase font-bold leading-none">Confianza DT</div>
+                            <div id="hub-morale-val" class="text-xs font-bold text-white mt-0.5">75%</div>
+                        </div>
+                    </div>
+
+                    <!-- Puntos de Habilidad -->
+                    <div class="flex items-center gap-2 bg-amber-500/15 border border-amber-500/40 px-3 py-1.5 rounded-xl">
+                        <i class="fa-solid fa-star text-amber-400 text-xs"></i>
+                        <div>
+                            <div class="text-[10px] text-amber-300/80 uppercase font-bold leading-none">Pts Habilidad</div>
+                            <div id="hub-sp-val" class="text-xs font-extrabold text-amber-400 mt-0.5">2</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Contenido Principal Grid -->
+        <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Columna Izquierda: Perfil del Jugador (4 columnas en lg) -->
+            <aside class="lg:col-span-4 space-y-4">
+                <!-- Carta Fut del Jugador -->
+                <div id="hub-player-card" class="fut-card rounded-2xl p-5 shadow-xl">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3.5">
+                            <div class="text-center">
+                                <div id="hub-ovr" class="font-sport text-5xl font-extrabold text-amber-400 leading-none">72</div>
+                                <div id="hub-pos" class="font-sport text-lg font-bold text-white uppercase mt-0.5">DEL</div>
+                            </div>
+                            <div class="h-12 w-[1px] bg-slate-700/80"></div>
+                            <div>
+                                <h2 id="hub-name" class="font-sport text-2xl font-extrabold text-white uppercase leading-tight truncate max-w-[165px]">Alex Rph</h2>
+                                <div class="flex items-center gap-1.5 mt-1">
+                                    <span id="hub-age" class="text-xs font-semibold text-slate-300">17 años</span>
+                                    <span class="text-slate-600">•</span>
+                                    <span id="hub-club-ovr-tag" class="text-xs font-bold text-emerald-400">Club 82 OVR</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="hub-club-badge" class="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center shadow-lg">
+                            <!-- Escudo -->
+                        </div>
+                    </div>
+
+                    <!-- Club y División Actual -->
+                    <div class="mt-4 pt-3 border-t border-slate-700/70 flex items-center justify-between text-xs">
+                        <div>
+                            <span class="text-slate-400 block">Club Actual</span>
+                            <span id="hub-club-name" class="font-bold text-white text-sm">Inter Galaxy</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-slate-400 block">Competición</span>
+                            <span id="hub-division-badge" class="inline-block px-2 py-0.5 rounded bg-slate-800 text-amber-400 font-bold mt-0.5">
+                                Segunda División
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Barras de Energía y Moral -->
+                    <div class="mt-4 space-y-2.5 bg-slate-950/50 p-3 rounded-xl border border-slate-800/80">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400 font-medium">Estado Físico / Energía</span>
+                                <span id="hub-energy-bar-text" class="text-emerald-400 font-bold">100%</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                <div id="hub-energy-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400 font-medium">Confianza del Entrenador</span>
+                                <span id="hub-morale-bar-text" class="text-sky-400 font-bold">75%</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                <div id="hub-morale-bar" class="h-full bg-gradient-to-r from-sky-500 to-indigo-400 transition-all duration-300" style="width: 75%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Finanzas y Valor -->
+                    <div class="mt-3 grid grid-cols-2 gap-2 text-center">
+                        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+                            <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Valor de Mercado</span>
+                            <span id="hub-value" class="font-sport text-lg font-bold text-emerald-400">€3.5M</span>
+                        </div>
+                        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+                            <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Salario Semanal</span>
+                            <span id="hub-wage" class="font-sport text-lg font-bold text-amber-400">€8,500</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resumen Rápido Estadísticas Temporada Actual -->
+                <div class="glass-panel rounded-2xl p-4">
+                    <h3 class="font-sport text-base font-bold uppercase tracking-wider text-slate-300 mb-3 flex items-center justify-between">
+                        <span><i class="fa-solid fa-chart-simple text-emerald-400 mr-1.5"></i>Temporada Actual</span>
+                        <span id="hub-avg-rating" class="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-sans">Media: 0.0</span>
+                    </h3>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-slate-900/80 rounded-xl p-2.5 border border-slate-800">
+                            <div id="season-apps" class="font-sport text-2xl font-bold text-white">0</div>
+                            <div class="text-[11px] text-slate-400">Partidos</div>
+                        </div>
+                        <div class="bg-slate-900/80 rounded-xl p-2.5 border border-slate-800">
+                            <div id="season-goals" class="font-sport text-2xl font-bold text-emerald-400">0</div>
+                            <div class="text-[11px] text-slate-400">Goles</div>
+                        </div>
+                        <div class="bg-slate-900/80 rounded-xl p-2.5 border border-slate-800">
+                            <div id="season-assists" class="font-sport text-2xl font-bold text-amber-400">0</div>
+                            <div class="text-[11px] text-slate-400">Asistencias</div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Columna Derecha: Navegación y Vistas Activas (8 columnas en lg) -->
+            <section class="lg:col-span-8 flex flex-col space-y-4">
+                <!-- Pestañas de Navegación -->
+                <nav class="glass-panel p-1.5 rounded-2xl flex overflow-x-auto gap-1.5 no-scrollbar">
+                    <button data-tab="match" class="tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-sport font-bold text-sm sm:text-base uppercase tracking-wide flex items-center justify-center gap-2 transition cursor-pointer bg-emerald-500 text-slate-950 shadow">
+                        <i class="fa-solid fa-futbol"></i> Partido
+                    </button>
+                    <button data-tab="standings" class="tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-sport font-bold text-sm sm:text-base uppercase tracking-wide flex items-center justify-center gap-2 transition cursor-pointer text-slate-300 hover:bg-slate-800/80">
+                        <i class="fa-solid fa-list-ol"></i> Tablas
+                    </button>
+                    <button data-tab="training" class="tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-sport font-bold text-sm sm:text-base uppercase tracking-wide flex items-center justify-center gap-2 transition cursor-pointer text-slate-300 hover:bg-slate-800/80 relative">
+                        <i class="fa-solid fa-dumbbell"></i> Mejora
+                        <span id="tab-sp-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                    </button>
+                    <button data-tab="transfers" class="tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-sport font-bold text-sm sm:text-base uppercase tracking-wide flex items-center justify-center gap-2 transition cursor-pointer text-slate-300 hover:bg-slate-800/80">
+                        <i class="fa-solid fa-right-left"></i> Fichajes
+                    </button>
+                    <button data-tab="national" class="tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-sport font-bold text-sm sm:text-base uppercase tracking-wide flex items-center justify-center gap-2 transition cursor-pointer text-slate-300 hover:bg-slate-800/80">
+                        <i class="fa-solid fa-flag"></i> Selección
+                    </button>
+                    <button data-tab="gala" class="tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-sport font-bold text-sm sm:text-base uppercase tracking-wide flex items-center justify-center gap-2 transition cursor-pointer text-slate-300 hover:bg-slate-800/80">
+                        <i class="fa-solid fa-award"></i> Gala
+                    </button>
+                    <button data-tab="palmares" class="tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-sport font-bold text-sm sm:text-base uppercase tracking-wide flex items-center justify-center gap-2 transition cursor-pointer text-slate-300 hover:bg-slate-800/80">
+                        <i class="fa-solid fa-trophy"></i> Palmarés
+                    </button>
+                </nav>
+
+                <!-- ========================================================= -->
+                <!-- TAB 1: SIGUIENTE PARTIDO / SIMULACIÓN INTERACTIVA         -->
+                <!-- ========================================================= -->
+                <div id="tab-match" class="tab-content space-y-4 animate-slide-up">
+                    <!-- Tarjeta Previa del Próximo Encuentro -->
+                    <div id="pre-match-panel" class="glass-panel rounded-2xl p-6 border border-slate-700/80">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
+                            <span id="match-comp-label" class="px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                                Segunda División • Jornada 1
+                            </span>
+                            <span id="match-venue-label" class="text-xs font-semibold text-slate-400">
+                                <i class="fa-solid fa-location-dot mr-1 text-amber-400"></i>Local
+                            </span>
+                        </div>
+
+                        <!-- Enfrentamiento Visual -->
+                        <div class="grid grid-cols-3 items-center gap-2 sm:gap-4 my-4 py-4 bg-slate-950/60 rounded-2xl border border-slate-800/90 px-3 sm:px-6">
+                            <!-- Local -->
+                            <div class="flex flex-col items-center text-center">
+                                <div id="home-team-badge" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center shadow-lg mb-2"></div>
+                                <h3 id="home-team-name" class="font-sport text-lg sm:text-xl font-bold text-white leading-tight">Inter Galaxy</h3>
+                                <span id="home-team-ovr" class="text-xs font-bold text-amber-400 mt-0.5">82 OVR</span>
+                            </div>
+
+                            <!-- VS -->
+                            <div class="flex flex-col items-center justify-center">
+                                <span class="font-sport text-3xl sm:text-4xl font-extrabold text-slate-500">VS</span>
+                                <span class="text-[11px] uppercase tracking-widest text-slate-400 mt-1">90 MIN</span>
+                            </div>
+
+                            <!-- Visitante -->
+                            <div class="flex flex-col items-center text-center">
+                                <div id="away-team-badge" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center shadow-lg mb-2"></div>
+                                <h3 id="away-team-name" class="font-sport text-lg sm:text-xl font-bold text-white leading-tight">Atlas</h3>
+                                <span id="away-team-ovr" class="text-xs font-bold text-amber-400 mt-0.5">81 OVR</span>
+                            </div>
+                        </div>
+
+                        <!-- Botones de Acción Pre-Partido -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
+                            <button id="play-interactive-btn" class="sm:col-span-2 py-3.5 px-5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold font-sport text-lg uppercase tracking-wider shadow-lg glow-green transition cursor-pointer flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-play"></i> Jugar Momentos Clave
+                            </button>
+                            <button id="quick-sim-btn" class="py-3.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-bold font-sport text-base uppercase tracking-wide transition cursor-pointer flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-forward-fast text-amber-400"></i> Simular Rápido
+                            </button>
+                        </div>
+
+                        <!-- Opción Descansar -->
+                        <div class="mt-3 flex items-center justify-between bg-slate-900/70 px-4 py-2.5 rounded-xl border border-slate-800 text-xs">
+                            <span class="text-slate-400"><i class="fa-solid fa-bed text-sky-400 mr-1.5"></i>¿Cansado? Descansa este partido para recuperar +35% de energía.</span>
+                            <button id="rest-match-btn" class="text-sky-400 hover:text-sky-300 font-bold underline cursor-pointer ml-2 whitespace-nowrap">
+                                Pedir Descanso
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Simulación En Vivo (Oculto hasta iniciar partido) -->
+                    <div id="live-match-panel" class="hidden glass-panel rounded-2xl p-5 sm:p-6 border border-emerald-500/40 space-y-5">
+                        <!-- Marcador En Vivo -->
+                        <div class="bg-slate-950 rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
+                            <div class="flex items-center gap-3 flex-1">
+                                <div id="live-home-badge" class="w-10 h-10 rounded-xl flex items-center justify-center"></div>
+                                <span id="live-home-name" class="font-sport font-bold text-base sm:text-lg text-white truncate">Local</span>
+                            </div>
+
+                            <div class="px-4 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-center min-w-[110px]">
+                                <div class="font-sport text-3xl font-extrabold text-white tracking-wider">
+                                    <span id="live-home-score">0</span> - <span id="live-away-score">0</span>
+                                </div>
+                                <div id="live-minute" class="text-xs font-bold text-emerald-400 animate-pulse">MIN 12'</div>
+                            </div>
+
+                            <div class="flex items-center justify-end gap-3 flex-1">
+                                <span id="live-away-name" class="font-sport font-bold text-base sm:text-lg text-white truncate text-right">Visita</span>
+                                <div id="live-away-badge" class="w-10 h-10 rounded-xl flex items-center justify-center"></div>
+                            </div>
+                        </div>
+
+                        <!-- Rendimiento Individual En Vivo -->
+                        <div class="grid grid-cols-3 gap-2 text-center bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                            <div>
+                                <span class="text-[10px] uppercase text-slate-400 block">Calificación</span>
+                                <span id="live-player-rating" class="font-sport text-xl font-bold text-amber-400">6.5</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] uppercase text-slate-400 block">Tus Goles</span>
+                                <span id="live-player-goals" class="font-sport text-xl font-bold text-emerald-400">0</span>
+                            </div>
+                            <div>
+                                <span class="text-[10px] uppercase text-slate-400 block">Tus Asistencias</span>
+                                <span id="live-player-assists" class="font-sport text-xl font-bold text-sky-400">0</span>
+                            </div>
+                        </div>
+
+                        <!-- Zona de Decisión Interactiva -->
+                        <div id="decision-box" class="bg-gradient-to-b from-slate-900 to-slate-950 border border-amber-500/40 rounded-2xl p-5 shadow-inner">
+                            <div class="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-wider mb-2">
+                                <i class="fa-solid fa-bolt"></i> Momento Clave del Partido
+                            </div>
+                            <p id="decision-prompt" class="text-white font-medium text-sm sm:text-base leading-relaxed mb-4">
+                                ¡Recibes el balón al borde del área tras un gran contragolpe! El defensa rival sale a taparte. ¿Qué haces?
+                            </p>
+                            <div id="decision-options" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                                <!-- Opciones dinámicas -->
+                            </div>
+                        </div>
+
+                        <!-- Crónica / Feed del Partido -->
+                        <div>
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Crónica del Encuentro</h4>
+                            <div id="match-feed" class="bg-slate-950/80 border border-slate-800 rounded-xl p-3 max-h-40 overflow-y-auto space-y-1.5 text-xs text-slate-300">
+                                <!-- Eventos minuto a minuto -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel Post-Partido (Resumen) -->
+                    <div id="post-match-panel" class="hidden glass-panel rounded-2xl p-6 border border-emerald-500/40 text-center space-y-5 animate-slide-up">
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase">
+                            <i class="fa-solid fa-flag-checkered"></i> Final del Partido
+                        </div>
+
+                        <div class="flex items-center justify-center gap-6 my-2">
+                            <div class="text-center">
+                                <div id="post-home-name" class="font-sport font-bold text-lg text-white">Local</div>
+                                <div id="post-home-score" class="font-sport text-4xl font-extrabold text-white mt-1">2</div>
+                            </div>
+                            <div class="text-slate-500 font-sport text-2xl font-bold">-</div>
+                            <div class="text-center">
+                                <div id="post-away-name" class="font-sport font-bold text-lg text-white">Visita</div>
+                                <div id="post-away-score" class="font-sport text-4xl font-extrabold text-white mt-1">1</div>
+                            </div>
+                        </div>
+
+                        <div id="post-match-awards" class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900/90 p-4 rounded-2xl border border-slate-800">
+                            <div>
+                                <span class="text-[11px] text-slate-400 block">Nota Partido</span>
+                                <span id="post-rating" class="font-sport text-2xl font-extrabold text-amber-400">8.4</span>
+                            </div>
+                            <div>
+                                <span class="text-[11px] text-slate-400 block">Goles / Asist.</span>
+                                <span id="post-ga" class="font-sport text-2xl font-extrabold text-emerald-400">1G / 1A</span>
+                            </div>
+                            <div>
+                                <span class="text-[11px] text-slate-400 block">Pts Habilidad</span>
+                                <span id="post-sp-gained" class="font-sport text-2xl font-extrabold text-sky-400">+2 PH</span>
+                            </div>
+                            <div>
+                                <span class="text-[11px] text-slate-400 block">Confianza DT</span>
+                                <span id="post-morale-change" class="font-sport text-2xl font-extrabold text-emerald-400">+5%</span>
+                            </div>
+                        </div>
+
+                        <button id="continue-next-day-btn" class="w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold font-sport text-lg uppercase tracking-wider shadow-lg cursor-pointer">
+                            Avanzar a la Siguiente Jornada <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- TAB 2: TABLA DE POSICIONES (1RA Y 2DA DIVISIÓN)           -->
+                <!-- ========================================================= -->
+                <div id="tab-standings" class="hidden tab-content space-y-4 animate-slide-up">
+                    <div class="glass-panel rounded-2xl p-5">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <div>
+                                <h2 class="font-sport text-2xl font-bold text-white uppercase">Clasificación de Liga</h2>
+                                <p class="text-xs text-slate-400">18 Jornadas (Ida y Vuelta) • 2 Ascensos / 2 Descensos por temporada</p>
+                            </div>
+                            <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+                                <button id="view-div1-btn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-emerald-500 text-slate-950">
+                                    Primera División
+                                </button>
+                                <button id="view-div2-btn" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer text-slate-400 hover:text-white">
+                                    Segunda División
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tabla Responsiva -->
+                        <div class="overflow-x-auto rounded-xl border border-slate-800">
+                            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                                <thead>
+                                    <tr class="bg-slate-900/95 text-slate-400 uppercase font-sport text-xs tracking-wider border-b border-slate-800">
+                                        <th class="py-3 px-3 text-center w-10">#</th>
+                                        <th class="py-3 px-3">Club</th>
+                                        <th class="py-3 px-2 text-center">OVR</th>
+                                        <th class="py-3 px-2 text-center">PJ</th>
+                                        <th class="py-3 px-2 text-center">G</th>
+                                        <th class="py-3 px-2 text-center">E</th>
+                                        <th class="py-3 px-2 text-center">P</th>
+                                        <th class="py-3 px-2 text-center hidden sm:table-cell">GF</th>
+                                        <th class="py-3 px-2 text-center hidden sm:table-cell">GC</th>
+                                        <th class="py-3 px-2 text-center">DG</th>
+                                        <th class="py-3 px-3 text-center font-extrabold text-white">PTS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="standings-tbody" class="divide-y divide-slate-800/70 bg-slate-950/40">
+                                    <!-- Filas dinámicas -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Leyenda Ascenso/Descenso -->
+                        <div id="standings-legend" class="mt-3 flex flex-wrap gap-4 text-xs text-slate-400">
+                            <!-- Dinámico según división -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- TAB 3: ENTRENAMIENTO Y MEJORA DE ATRIBUTOS                -->
+                <!-- ========================================================= -->
+                <div id="tab-training" class="hidden tab-content space-y-4 animate-slide-up">
+                    <div class="glass-panel rounded-2xl p-6">
+                        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4 mb-5">
+                            <div>
+                                <h2 class="font-sport text-2xl font-bold text-white uppercase">Desarrollo del Futbolista</h2>
+                                <p class="text-xs text-slate-400">Invierte tus Puntos de Habilidad (PH) para mejorar tus atributos y subir tu Media (OVR).</p>
+                            </div>
+                            <div class="px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center gap-2.5">
+                                <i class="fa-solid fa-star text-amber-400 text-lg"></i>
+                                <div>
+                                    <span class="text-[10px] uppercase text-amber-300/80 block font-bold">Disponibles</span>
+                                    <span id="training-sp-display" class="font-sport text-2xl font-extrabold text-amber-400 leading-none">2 PH</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grid de Atributos -->
+                        <div id="attributes-upgrade-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Se llena dinámicamente -->
+                        </div>
+
+                        <!-- Sesión de Entrenamiento Extra -->
+                        <div class="mt-6 pt-5 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900/70 p-4 rounded-xl">
+                            <div>
+                                <h4 class="font-sport text-lg font-bold text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-stopwatch text-emerald-400"></i> Entrenamiento Intensivo Extra
+                                </h4>
+                                <p class="text-xs text-slate-400">Gana <strong class="text-amber-400">+1 Punto de Habilidad</strong> y mejora la confianza del DT a cambio de <strong class="text-rose-400">-20% de Energía</strong>.</p>
+                            </div>
+                            <button id="extra-training-btn" class="px-5 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 font-bold text-xs uppercase tracking-wider transition cursor-pointer whitespace-nowrap">
+                                Entrenar Ahora (-20% Energía)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- TAB 4: MERCADO DE FICHAJES                                -->
+                <!-- ========================================================= -->
+                <div id="tab-transfers" class="hidden tab-content space-y-4 animate-slide-up">
+                    <div class="glass-panel rounded-2xl p-6">
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-5">
+                            <div>
+                                <h2 class="font-sport text-2xl font-bold text-white uppercase">Mercado de Fichajes</h2>
+                                <p id="transfer-window-desc" class="text-xs text-slate-400">Ofertas de clubes interesados según tu Media (OVR) y rendimiento.</p>
+                            </div>
+                            <span id="transfer-window-badge" class="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
+                                Ventana Abierta
+                            </span>
+                        </div>
+
+                        <div id="transfer-offers-container" class="space-y-3">
+                            <!-- Ofertas dinámicas -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- TAB 5: PALMARÉS Y ESTADÍSTICAS HISTÓRICAS                 -->
+                <!-- ========================================================= -->
+                <!-- TAB SELECCIÓN NACIONAL INTEGRADA -->
+                <div id="tab-national" class="hidden tab-content space-y-4 animate-slide-up">
+                    <div class="glass-panel rounded-2xl p-6">
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4 mb-5">
+                            <div>
+                                <h2 class="font-sport text-2xl font-bold text-white uppercase">Selección Nacional</h2>
+                                <p class="text-xs text-slate-400">Tu carrera internacional avanza junto a tu carrera de club.</p>
+                            </div>
+                            <span id="nationality-badge" class="px-3 py-1 rounded-full bg-sky-500/15 border border-sky-500/40 text-sky-300 text-xs font-bold">🇩🇴 República Dominicana</span>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center mb-5">
+                            <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl"><div id="national-caps" class="font-sport text-3xl font-extrabold text-white">0</div><div class="text-xs text-slate-400">Convocatorias / PJ</div></div>
+                            <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl"><div id="national-goals" class="font-sport text-3xl font-extrabold text-emerald-400">0</div><div class="text-xs text-slate-400">Goles</div></div>
+                            <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl"><div id="national-assists" class="font-sport text-3xl font-extrabold text-amber-400">0</div><div class="text-xs text-slate-400">Asistencias</div></div>
+                            <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl"><div id="national-trophies" class="font-sport text-3xl font-extrabold text-yellow-400">0</div><div class="text-xs text-slate-400">Títulos</div></div>
+                        </div>
+                        <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-4 mb-4">
+                            <h3 class="font-sport text-xl font-bold text-white mb-1">Convocatoria internacional</h3>
+                            <p id="national-status" class="text-sm text-slate-300 mb-3">Tu rendimiento en el club será evaluado para recibir convocatorias.</p>
+                            <button id="national-match-btn" class="w-full sm:w-auto px-5 py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-sm uppercase tracking-wide transition">
+                                <i class="fa-solid fa-flag mr-2"></i> Jugar partido internacional
+                            </button>
+                            <p class="text-[11px] text-slate-500 mt-2">La convocatoria depende de tu media (OVR) y rendimiento. Cada partido internacional consume energía.</p>
+                        </div>
+                        <div>
+                            <h3 class="font-sport text-lg font-bold text-white mb-2">Historial internacional</h3>
+                            <div id="national-history" class="space-y-2 text-sm text-slate-400">
+                                Todavía no has disputado partidos con tu selección.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-gala" class="hidden tab-content space-y-4 animate-slide-up">
+                    <div class="glass-panel rounded-2xl p-6">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <div><h2 class="font-sport text-3xl font-extrabold text-amber-300 uppercase">Gala Mundial RPH</h2><p class="text-xs text-slate-400">Premios inspirados en las galas y distinciones del fútbol real. Los resultados se calculan al cerrar cada temporada.</p></div>
+                            <span class="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold">TEMPORADA <span id="gala-current-season">1</span></span>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 text-center">
+                            <div class="bg-slate-900/80 rounded-xl border border-slate-800 p-3"><div id="gala-total-awards" class="font-sport text-3xl font-extrabold text-white">0</div><div class="text-xs text-slate-400">Premios entregados</div></div>
+                            <div class="bg-slate-900/80 rounded-xl border border-slate-800 p-3"><div id="gala-player-wins" class="font-sport text-3xl font-extrabold text-amber-300">0</div><div class="text-xs text-slate-400">Premios ganados</div></div>
+                            <div class="bg-slate-900/80 rounded-xl border border-slate-800 p-3"><div id="gala-nominations" class="font-sport text-3xl font-extrabold text-sky-300">0</div><div class="text-xs text-slate-400">Nominaciones</div></div>
+                            <div class="bg-slate-900/80 rounded-xl border border-slate-800 p-3"><div id="gala-seasons" class="font-sport text-3xl font-extrabold text-emerald-300">0</div><div class="text-xs text-slate-400">Galas disputadas</div></div>
+                        </div>
+                        <h3 class="font-sport text-xl font-bold text-white mb-3">Premios incluidos</h3>
+                        <div id="gala-award-catalog" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+                    </div>
+                    <div class="glass-panel rounded-2xl p-6">
+                        <h3 class="font-sport text-2xl font-bold text-white uppercase mb-3">Última gala y votaciones</h3>
+                        <div id="gala-latest-results" class="space-y-3"><p class="text-sm text-slate-400">La primera gala se celebrará al terminar tu primera temporada.</p></div>
+                    </div>
+                    <div class="glass-panel rounded-2xl p-6">
+                        <h3 class="font-sport text-xl font-bold text-white uppercase mb-3">Historial de galas</h3>
+                        <div id="gala-history" class="space-y-3"><p class="text-sm text-slate-400">Todavía no hay temporadas registradas.</p></div>
+                    </div>
+                </div>
+
+                <div id="tab-palmares" class="hidden tab-content space-y-4 animate-slide-up">
+                    <!-- Totales de Carrera -->
+                    <div class="glass-panel rounded-2xl p-6">
+                        <h2 class="font-sport text-2xl font-bold text-white uppercase mb-4">Estadísticas Totales de Carrera</h2>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                            <div class="bg-slate-900/90 border border-slate-800 p-3.5 rounded-2xl">
+                                <i class="fa-solid fa-shirt text-slate-400 text-lg mb-1"></i>
+                                <div id="career-total-apps" class="font-sport text-3xl font-extrabold text-white">0</div>
+                                <div class="text-xs text-slate-400">Partidos Jugados</div>
+                            </div>
+                            <div class="bg-slate-900/90 border border-slate-800 p-3.5 rounded-2xl">
+                                <i class="fa-solid fa-futbol text-emerald-400 text-lg mb-1"></i>
+                                <div id="career-total-goals" class="font-sport text-3xl font-extrabold text-emerald-400">0</div>
+                                <div class="text-xs text-slate-400">Goles Totales</div>
+                            </div>
+                            <div class="bg-slate-900/90 border border-slate-800 p-3.5 rounded-2xl">
+                                <i class="fa-solid fa-shoe-prints text-amber-400 text-lg mb-1"></i>
+                                <div id="career-total-assists" class="font-sport text-3xl font-extrabold text-amber-400">0</div>
+                                <div class="text-xs text-slate-400">Asistencias</div>
+                            </div>
+                            <div class="bg-slate-900/90 border border-slate-800 p-3.5 rounded-2xl">
+                                <i class="fa-solid fa-trophy text-yellow-400 text-lg mb-1"></i>
+                                <div id="career-total-trophies" class="font-sport text-3xl font-extrabold text-yellow-400">0</div>
+                                <div class="text-xs text-slate-400">Títulos y Premios</div>
+                            </div>
+                        </div>
+
+                        <!-- Vitrina de Trofeos -->
+                        <div class="mt-6">
+                            <h3 class="font-sport text-lg font-bold text-amber-400 uppercase mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-award"></i> Vitrina de Trofeos y Premios Individuales
+                            </h3>
+                            <div id="trophies-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <div class="text-xs text-slate-500 italic bg-slate-900/50 p-3 rounded-xl border border-slate-800/80">
+                                    Aún no has ganado trofeos. ¡Compite para levantar títulos de liga, Balones de Oro y Botas de Oro!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Historial por Temporada -->
+                    <div class="glass-panel rounded-2xl p-6">
+                        <h3 class="font-sport text-xl font-bold text-white uppercase mb-3">Historial por Temporada</h3>
+                        <div class="overflow-x-auto rounded-xl border border-slate-800">
+                            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                                <thead>
+                                    <tr class="bg-slate-900 text-slate-400 uppercase font-sport text-xs border-b border-slate-800">
+                                        <th class="py-2.5 px-3">Temp</th>
+                                        <th class="py-2.5 px-3">Club</th>
+                                        <th class="py-2.5 px-2 text-center">Div</th>
+                                        <th class="py-2.5 px-2 text-center">OVR</th>
+                                        <th class="py-2.5 px-2 text-center">PJ</th>
+                                        <th class="py-2.5 px-2 text-center">G</th>
+                                        <th class="py-2.5 px-2 text-center">A</th>
+                                        <th class="py-2.5 px-3 text-center">Nota</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-tbody" class="divide-y divide-slate-800/70 bg-slate-950/40">
+                                    <tr>
+                                        <td colspan="8" class="py-4 px-3 text-center text-xs text-slate-500">El historial aparecerá al completar tu primera temporada.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LÓGICA COMPLETA DEL JUEGO EN JAVASCRIPT                               -->
+    <!-- ===================================================================== -->
+    <script>
+        // =========================================================================
+        // 1. DATOS DE CLUBES EXACTOS (PRIMERA Y SEGUNDA DIVISIÓN)
+        // =========================================================================
+        const INITIAL_CLUBS = [
+            // PRIMERA DIVISIÓN (10 clubes)
+            { id: 'union_victoria', name: 'Unión Victoria', ovr: 91, div: 1, short: 'UVI', primary: '#1e3a8a', secondary: '#fbbf24' },
+            { id: 'rio_do_brasilia', name: 'Rio Do Brasilia', ovr: 91, div: 1, short: 'RDB', primary: '#15803d', secondary: '#facc15' },
+            { id: 'red_demons', name: 'Red Demons', ovr: 88, div: 1, short: 'RDM', primary: '#b91c1c', secondary: '#111827' },
+            { id: 'maxwell', name: 'Maxwell', ovr: 88, div: 1, short: 'MAX', primary: '#0369a1', secondary: '#38bdf8' },
+            { id: 'la_mafia', name: 'La Mafia', ovr: 86, div: 1, short: 'LMF', primary: '#18181b', secondary: '#e11d48' },
+            { id: 'royal_united', name: 'Royal United', ovr: 85, div: 1, short: 'RYU', primary: '#581c87', secondary: '#f59e0b' },
+            { id: 'calcio_plate', name: 'Calcio Plate', ovr: 85, div: 1, short: 'CPL', primary: '#dc2626', secondary: '#f8fafc' },
+            { id: 'brasilia', name: 'Brasilia', ovr: 85, div: 1, short: 'BRA', primary: '#ca8a04', secondary: '#166534' },
+            { id: 'liverpool', name: 'Liverpool', ovr: 84, div: 1, short: 'LIV', primary: '#991b1b', secondary: '#fde047' },
+            { id: 'fire_united', name: 'Fire United', ovr: 82, div: 1, short: 'FIR', primary: '#ea580c', secondary: '#1e293b' },
+
+            // SEGUNDA DIVISIÓN (10 clubes)
+            { id: 'inter_galaxy', name: 'Inter Galaxy', ovr: 82, div: 2, short: 'IGX', primary: '#312e81', secondary: '#34d399' },
+            { id: 'tacon', name: 'Tacón', ovr: 82, div: 2, short: 'TAC', primary: '#be185d', secondary: '#fbcfe8' },
+            { id: 'atlas', name: 'Atlas', ovr: 81, div: 2, short: 'ATL', primary: '#9a3412', secondary: '#0f172a' },
+            { id: 'rosarios_unidos', name: 'Club Atlético Rosarios Unidos', ovr: 81, div: 2, short: 'CAR', primary: '#0284c7', secondary: '#f8fafc' },
+            { id: 'nacional_patreon', name: 'Nacional Patreon', ovr: 81, div: 2, short: 'NPT', primary: '#1d4ed8', secondary: '#ef4444' },
+            { id: 'real_madrid', name: 'Real Madrid', ovr: 81, div: 2, short: 'RMA', primary: '#e2e8f0', secondary: '#eab308' },
+            { id: 'jamon_fc', name: 'Jamón FC', ovr: 80, div: 2, short: 'JAM', primary: '#e11d48', secondary: '#fda4af' },
+            { id: 'drogados_fc', name: 'Drogados Fc', ovr: 80, div: 2, short: 'DRG', primary: '#6d28d9', secondary: '#a3e635' },
+            { id: 'black_town', name: 'Black Town', ovr: 80, div: 2, short: 'BKT', primary: '#09090b', secondary: '#94a3b8' },
+            { id: 'la_cobra_fc', name: 'La Cobra FC', ovr: 80, div: 2, short: 'COB', primary: '#065f46', secondary: '#10b981' }
+        ];
+
+        // Pesos de atributos por posición para calcular el OVR
+        const POS_WEIGHTS = {
+            POR: { pace: 0.05, shot: 0.02, pass: 0.08, drib: 0.05, def: 0.48, phy: 0.30 },
+            DFC: { pace: 0.10, shot: 0.03, pass: 0.10, drib: 0.07, def: 0.40, phy: 0.28 },
+            LI:  { pace: 0.22, shot: 0.05, pass: 0.18, drib: 0.15, def: 0.25, phy: 0.13 },
+            LD:  { pace: 0.22, shot: 0.05, pass: 0.18, drib: 0.15, def: 0.25, phy: 0.13 },
+            CAI: { pace: 0.24, shot: 0.06, pass: 0.18, drib: 0.18, def: 0.22, phy: 0.10 },
+            CAD: { pace: 0.24, shot: 0.06, pass: 0.18, drib: 0.18, def: 0.22, phy: 0.10 },
+            MCD: { pace: 0.10, shot: 0.06, pass: 0.22, drib: 0.12, def: 0.30, phy: 0.26 },
+            MC:  { pace: 0.12, shot: 0.12, pass: 0.28, drib: 0.20, def: 0.14, phy: 0.20 },
+            MCO: { pace: 0.13, shot: 0.18, pass: 0.27, drib: 0.25, def: 0.05, phy: 0.18 },
+            MI:  { pace: 0.20, shot: 0.12, pass: 0.22, drib: 0.22, def: 0.08, phy: 0.22 },
+            MD:  { pace: 0.20, shot: 0.12, pass: 0.22, drib: 0.22, def: 0.08, phy: 0.22 },
+            EI:  { pace: 0.25, shot: 0.22, pass: 0.13, drib: 0.28, def: 0.02, phy: 0.16 },
+            ED:  { pace: 0.25, shot: 0.22, pass: 0.13, drib: 0.28, def: 0.02, phy: 0.16 },
+            SD:  { pace: 0.19, shot: 0.25, pass: 0.18, drib: 0.25, def: 0.02, phy: 0.16 },
+            DC:  { pace: 0.20, shot: 0.34, pass: 0.10, drib: 0.22, def: 0.02, phy: 0.17 }
+        };
+
+        const ATTR_META = [
+            { key: 'pace', label: 'Ritmo (RIT)', icon: 'fa-bolt', color: 'text-emerald-400' },
+            { key: 'shot', label: 'Tiro (TIR)', icon: 'fa-bullseye', color: 'text-rose-400' },
+            { key: 'pass', label: 'Pase (PAS)', icon: 'fa-share-nodes', color: 'text-sky-400' },
+            { key: 'drib', label: 'Regate (REG)', icon: 'fa-wand-magic-sparkles', color: 'text-amber-400' },
+            { key: 'def',  label: 'Defensa (DEF)', icon: 'fa-shield-halved', color: 'text-indigo-400' },
+            { key: 'phy',  label: 'Físico (FIS)', icon: 'fa-dumbbell', color: 'text-orange-400' }
+        ];
+
+        // =========================================================================
+        // 2. ESTADO GLOBAL DEL JUEGO
+        // =========================================================================
+        let gameState = {
+            season: 1,
+            matchday: 1, // 1 a 18 (ida y vuelta de 10 equipos)
+            selectedStarterClubId: 'inter_galaxy',
+            viewingStandingsDiv: 2,
+            player: {
+                name: 'Alex Rph',
+                pos: 'DEL',
+                age: 17,
+                nationality: 'Dominicana',
+                clubId: 'inter_galaxy',
+                nationalStats: { caps: 0, goals: 0, assists: 0, trophies: 0, history: [] },
+                energy: 100,
+                morale: 75,
+                skillPoints: 2,
+                attrs: { pace: 74, shot: 74, pass: 69, drib: 73, def: 45, phy: 68 },
+                ovr: 72,
+                value: 3500000,
+                wage: 8500,
+                seasonStats: { apps: 0, goals: 0, assists: 0, ratingSum: 0 },
+                careerStats: { apps: 0, goals: 0, assists: 0 },
+                trophies: [],
+                history: []
+            },
+            clubs: [],
+            schedules: { 1: [], 2: [] },
+            liveMatch: null,
+            transferOffers: [],
+            galaHistory: []
+        };
+
+        // =========================================================================
+        // 3. EFECTOS DE SONIDO SINTÉTICOS (TONE.JS)
+        // =========================================================================
+        let synthReady = false;
+        let synth = null;
+
+        function playSound(type) {
+            try {
+                if (!synthReady && typeof Tone !== 'undefined') {
+                    Tone.start();
+                    synth = new Tone.PolySynth(Tone.Synth).toDestination();
+                    synth.volume.value = -12;
+                    synthReady = true;
+                }
+                if (!synth) return;
+
+                if (type === 'click') {
+                    synth.triggerAttackRelease('C5', '32n');
+                } else if (type === 'goal') {
+                    synth.triggerAttackRelease(['C5', 'E5', 'G5', 'C6'], '8n');
+                } else if (type === 'upgrade') {
+                    synth.triggerAttackRelease(['A4', 'C#5', 'E5'], '16n');
+                } else if (type === 'whistle') {
+                    synth.triggerAttackRelease(['G5', 'F#5'], '16n');
+                }
+            } catch (e) {
+                // Ignorar errores de audio en navegadores sin interacción previa
+            }
+        }
+
+        // =========================================================================
+        // 4. UTILIDADES VISUALES Y DE CÁLCULO
+        // =========================================================================
+        function generateClubBadgeSVG(club, sizeClass = 'w-12 h-12') {
+            if (!club) return '';
+            const textColor = (club.primary === '#e2e8f0') ? '#0f172a' : '#ffffff';
+            return `
+                <div class="${sizeClass} rounded-xl flex items-center justify-center relative overflow-hidden border border-white/20 shadow-md"
+                     style="background: linear-gradient(135deg, ${club.primary} 55%, ${club.secondary} 100%);">
+                    <span class="font-sport font-extrabold tracking-tighter text-sm sm:text-base drop-shadow" style="color: ${textColor};">
+                        ${club.short}
+                    </span>
+                </div>
+            `;
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const colors = {
+                success: 'border-emerald-500/60 bg-slate-900/95 text-emerald-300',
+                warning: 'border-amber-500/60 bg-slate-900/95 text-amber-300',
+                error: 'border-rose-500/60 bg-slate-900/95 text-rose-300',
+                info: 'border-sky-500/60 bg-slate-900/95 text-sky-300'
+            };
+            const icons = {
+                success: 'fa-circle-check text-emerald-400',
+                warning: 'fa-triangle-exclamation text-amber-400',
+                error: 'fa-circle-xmark text-rose-400',
+                info: 'fa-circle-info text-sky-400'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-md text-xs sm:text-sm font-medium animate-slide-up ${colors[type]}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type]} text-base"></i><span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-10px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3400);
+        }
+
+        function getInitialAttrsForPos(pos) {
+            const profiles = {
+                POR: { pace: 58, shot: 35, pass: 62, drib: 48, def: 78, phy: 74 },
+                DFC: { pace: 66, shot: 48, pass: 64, drib: 58, def: 78, phy: 77 },
+                LI: { pace: 74, shot: 55, pass: 69, drib: 70, def: 72, phy: 70 },
+                LD: { pace: 74, shot: 55, pass: 69, drib: 70, def: 72, phy: 70 },
+                CAI: { pace: 76, shot: 57, pass: 70, drib: 72, def: 69, phy: 69 },
+                CAD: { pace: 76, shot: 57, pass: 70, drib: 72, def: 69, phy: 69 },
+                MCD: { pace: 67, shot: 58, pass: 73, drib: 66, def: 76, phy: 73 },
+                MC: { pace: 70, shot: 66, pass: 76, drib: 73, def: 65, phy: 69 },
+                MCO: { pace: 72, shot: 71, pass: 77, drib: 77, def: 52, phy: 65 },
+                MI: { pace: 75, shot: 66, pass: 72, drib: 74, def: 58, phy: 67 },
+                MD: { pace: 75, shot: 66, pass: 72, drib: 74, def: 58, phy: 67 },
+                EI: { pace: 78, shot: 73, pass: 68, drib: 78, def: 42, phy: 64 },
+                ED: { pace: 78, shot: 73, pass: 68, drib: 78, def: 42, phy: 64 },
+                SD: { pace: 75, shot: 75, pass: 70, drib: 76, def: 38, phy: 67 },
+                DC: { pace: 75, shot: 78, pass: 66, drib: 73, def: 35, phy: 73 }
+            };
+            return { ...(profiles[pos] || profiles.DC) };
+        }
+
+        function calculatePlayerOVR(attrs, pos) {
+            const w = POS_WEIGHTS[pos] || POS_WEIGHTS.DC;
+            const raw = (attrs.pace * w.pace) + (attrs.shot * w.shot) + (attrs.pass * w.pass) +
+                        (attrs.drib * w.drib) + (attrs.def * w.def) + (attrs.phy * w.phy);
+            return Math.min(99, Math.max(60, Math.round(raw)));
+        }
+
+        function updatePlayerFinances() {
+            const p = gameState.player;
+            const ageFactor = Math.max(0.7, (32 - p.age) / 14);
+            const ovrDiff = Math.max(1, p.ovr - 65);
+            p.value = Math.round((Math.pow(ovrDiff, 2.35) * 32000) * ageFactor);
+            p.wage = Math.round(2500 + Math.pow(ovrDiff, 2.05) * 145);
+        }
+
+        function formatMoney(num) {
+            if (num >= 1000000) {
+                return '€' + (num / 1000000).toFixed(1) + 'M';
+            }
+            return '€' + num.toLocaleString('es-ES');
+        }
+
+        // =========================================================================
+        // 5. PANTALLA DE CREACIÓN DE JUGADOR
+        // =========================================================================
+        function initCreationScreen() {
+            const grid = document.getElementById('starter-clubs-grid');
+            const div2Clubs = INITIAL_CLUBS.filter(c => c.div === 2);
+
+            grid.innerHTML = '';
+            div2Clubs.forEach(club => {
+                const isSelected = club.id === gameState.selectedStarterClubId;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `starter-club-card flex items-center justify-between p-2.5 rounded-xl border text-left transition cursor-pointer ${
+                    isSelected 
+                    ? 'bg-emerald-500/15 border-emerald-500 shadow-md' 
+                    : 'bg-slate-900/80 border-slate-800 hover:border-slate-600'
+                }`;
+                btn.dataset.clubId = club.id;
+                btn.innerHTML = `
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        ${generateClubBadgeSVG(club, 'w-9 h-9 flex-shrink-0')}
+                        <div class="truncate">
+                            <div class="text-xs font-bold text-white truncate">${club.name}</div>
+                            <div class="text-[10px] text-slate-400">Segunda División</div>
+                        </div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded bg-slate-800 text-amber-400 font-sport font-bold text-sm ml-2">
+                        ${club.ovr}
+                    </span>
+                `;
+                btn.addEventListener('click', () => {
+                    playSound('click');
+                    gameState.selectedStarterClubId = club.id;
+                    initCreationScreen();
+                    updateCreationPreview();
+                });
+                grid.appendChild(btn);
+            });
+
+            updateCreationPreview();
+        }
+
+        function updateCreationPreview() {
+            const nameInput = document.getElementById('player-name-input').value.trim() || 'Jugador Rph';
+            const pos = document.getElementById('player-pos-select').value;
+            const age = parseInt(document.getElementById('player-age-select').value, 10);
+            const club = INITIAL_CLUBS.find(c => c.id === gameState.selectedStarterClubId) || INITIAL_CLUBS[10];
+
+            const attrs = getInitialAttrsForPos(pos);
+            const ovr = calculatePlayerOVR(attrs, pos);
+
+            document.getElementById('preview-name').textContent = nameInput;
+            document.getElementById('preview-pos').textContent = pos;
+            document.getElementById('preview-ovr').textContent = ovr;
+            document.getElementById('preview-age-badge').textContent = `${age} AÑOS`;
+            document.getElementById('preview-club-name').textContent = club.name;
+            document.getElementById('preview-club-badge').innerHTML = generateClubBadgeSVG(club, 'w-12 h-12');
+
+            const statsGrid = document.getElementById('preview-stats-grid');
+            statsGrid.innerHTML = ATTR_META.map(m => `
+                <div class="flex justify-between items-center border-b border-slate-800/60 pb-0.5">
+                    <span class="text-slate-400 text-xs font-sans font-semibold">${m.label.split(' ')[1].replace('(', '').replace(')', '')}</span>
+                    <span class="font-bold text-white">${attrs[m.key]}</span>
+                </div>
+            `).join('');
+        }
+
+        // Eventos en tiempo real en creación
+        document.getElementById('player-name-input').addEventListener('input', updateCreationPreview);
+        document.getElementById('player-pos-select').addEventListener('change', updateCreationPreview);
+        document.getElementById('player-age-select').addEventListener('change', updateCreationPreview);
+        document.getElementById('player-nationality-select').addEventListener('change', updateCreationPreview);
+
+        document.getElementById('start-career-btn').addEventListener('click', () => {
+            const nameVal = document.getElementById('player-name-input').value.trim();
+            if (!nameVal) {
+                showToast('Por favor, escribe un nombre para tu futbolista.', 'warning');
+                return;
+            }
+            playSound('goal');
+
+            const pos = document.getElementById('player-pos-select').value;
+            const age = parseInt(document.getElementById('player-age-select').value, 10);
+            const attrs = getInitialAttrsForPos(pos);
+            const ovr = calculatePlayerOVR(attrs, pos);
+
+            gameState.player.name = nameVal;
+            gameState.player.pos = pos;
+            gameState.player.age = age;
+            gameState.player.clubId = gameState.selectedStarterClubId;
+            gameState.player.attrs = attrs;
+            gameState.player.ovr = ovr;
+            gameState.player.energy = 100;
+            gameState.player.morale = 75;
+            gameState.player.skillPoints = 2;
+            updatePlayerFinances();
+
+            // Clonar clubes con estadísticas de tabla a 0
+            gameState.clubs = INITIAL_CLUBS.map(c => ({
+                ...c,
+                pj: 0, g: 0, e: 0, p: 0, gf: 0, gc: 0, pts: 0
+            }));
+
+            generateSeasonSchedules();
+            generateTransferOffers();
+
+            document.getElementById('creation-screen').classList.add('hidden');
+            document.getElementById('career-hub').classList.remove('hidden');
+
+            gameState.viewingStandingsDiv = 2;
+            renderAllHub();
+            showToast(`¡Bienvenido a ${getPlayerClub().name}, ${nameVal}!`, 'success');
+        });
+
+        // =========================================================================
+        // 6. GENERACIÓN DE CALENDARIO ROUND-ROBIN (18 JORNADAS IDA Y VUELTA)
+        // =========================================================================
+        function generateRoundRobinForDivision(divNum) {
+            const teams = gameState.clubs.filter(c => c.div === divNum).map(c => c.id);
+            const n = teams.length; // 10 equipos
+            const rounds = [];
+            const list = [...teams];
+
+            // Primera vuelta (9 jornadas)
+            for (let r = 0; r < n - 1; r++) {
+                const matches = [];
+                for (let i = 0; i < n / 2; i++) {
+                    const home = list[i];
+                    const away = list[n - 1 - i];
+                    if (r % 2 === 0) {
+                        matches.push({ homeId: home, awayId: away, played: false, homeGoals: 0, awayGoals: 0 });
+                    } else {
+                        matches.push({ homeId: away, awayId: home, played: false, homeGoals: 0, awayGoals: 0 });
+                    }
+                }
+                rounds.push(matches);
+                // Rotación fija primer elemento
+                const fixed = list[0];
+                const rest = list.slice(1);
+                rest.unshift(rest.pop());
+                list.splice(0, list.length, fixed, ...rest);
+            }
+
+            // Segunda vuelta (9 jornadas invertidas = 18 jornadas totales)
+            const secondHalf = rounds.map(round =>
+                round.map(m => ({ homeId: m.awayId, awayId: m.homeId, played: false, homeGoals: 0, awayGoals: 0 }))
+            );
+
+            return [...rounds, ...secondHalf];
+        }
+
+        function generateSeasonSchedules() {
+            gameState.schedules[1] = generateRoundRobinForDivision(1);
+            gameState.schedules[2] = generateRoundRobinForDivision(2);
+        }
+
+        function getPlayerClub() {
+            return gameState.clubs.find(c => c.id === gameState.player.clubId);
+        }
+
+        function getNextPlayerMatch() {
+            const club = getPlayerClub();
+            const roundMatches = gameState.schedules[club.div][gameState.matchday - 1];
+            if (!roundMatches) return null;
+            return roundMatches.find(m => m.homeId === club.id || m.awayId === club.id);
+        }
+
+        // =========================================================================
+        // 7. SIMULACIÓN DE PARTIDOS Y MOMENTOS CLAVE INTERACTIVOS
+        // =========================================================================
+        function simulateAIMatch(homeClub, awayClub) {
+            const ovrDiff = (homeClub.ovr + 2) - awayClub.ovr; // Ligera ventaja local (+2)
+            const homeExpected = Math.max(0.35, 1.45 + ovrDiff * 0.11);
+            const awayExpected = Math.max(0.30, 1.25 - ovrDiff * 0.09);
+
+            const sampleGoals = (lambda) => {
+                let L = Math.exp(-lambda);
+                let k = 0;
+                let p = 1;
+                do {
+                    k++;
+                    p *= Math.random();
+                } while (p > L && k < 7);
+                return k - 1;
+            };
+
+            return {
+                homeGoals: sampleGoals(homeExpected),
+                awayGoals: sampleGoals(awayExpected)
+            };
+        }
+
+        function applyMatchResultToTable(homeClub, awayClub, homeGoals, awayGoals) {
+            homeClub.pj++;
+            awayClub.pj++;
+            homeClub.gf += homeGoals;
+            homeClub.gc += awayGoals;
+            awayClub.gf += awayGoals;
+            awayClub.gc += homeGoals;
+
+            if (homeGoals > awayGoals) {
+                homeClub.g++;
+                homeClub.pts += 3;
+                awayClub.p++;
+            } else if (awayGoals > homeGoals) {
+                awayClub.g++;
+                awayClub.pts += 3;
+                homeClub.p++;
+            } else {
+                homeClub.e++;
+                awayClub.e++;
+                homeClub.pts += 1;
+                awayClub.pts += 1;
+            }
+        }
+
+        function simulateOtherMatchesInMatchday(skipPlayerMatch = true) {
+            const playerClub = getPlayerClub();
+            [1, 2].forEach(divNum => {
+                const round = gameState.schedules[divNum][gameState.matchday - 1];
+                if (!round) return;
+                round.forEach(m => {
+                    if (m.played) return;
+                    const isPlayerMatch = (m.homeId === playerClub.id || m.awayId === playerClub.id);
+                    if (isPlayerMatch && skipPlayerMatch) return;
+
+                    const hClub = gameState.clubs.find(c => c.id === m.homeId);
+                    const aClub = gameState.clubs.find(c => c.id === m.awayId);
+                    const res = simulateAIMatch(hClub, aClub);
+                    m.homeGoals = res.homeGoals;
+                    m.awayGoals = res.awayGoals;
+                    m.played = true;
+                    applyMatchResultToTable(hClub, aClub, res.homeGoals, res.awayGoals);
+                });
+            });
+        }
+
+        // Generador de escenarios interactivos según posición del jugador
+        function getInteractiveScenario(pos, momentIndex) {
+            const scenarios = {
+                DEL: [
+                    {
+                        prompt: '¡Balón filtrado al espacio! Quedas mano a mano contra el portero rival en el borde del área.',
+                        options: [
+                            { text: 'Disparo colocado al palo largo', attr: 'shot', type: 'goal', bonus: 0.45 },
+                            { text: 'Regatear al portero y definir', attr: 'drib', type: 'goal', bonus: 0.40 },
+                            { text: 'Pase de la muerte al compañero', attr: 'pass', type: 'assist', bonus: 0.50 }
+                        ]
+                    },
+                    {
+                        prompt: 'Centro peligroso desde la banda derecha directo al punto de penalti. Tienes encima al central.',
+                        options: [
+                            { text: 'Remate de volea potente', attr: 'shot', type: 'goal', bonus: 0.42 },
+                            { text: 'Ganar posición con el cuerpo y cabecear', attr: 'phy', type: 'goal', bonus: 0.44 },
+                            { text: 'Bajarla de pecho para el mediapunta', attr: 'pass', type: 'assist', bonus: 0.48 }
+                        ]
+                    },
+                    {
+                        prompt: 'Contragolpe letal en los minutos finales. Conduces a toda velocidad por el centro.',
+                        options: [
+                            { text: 'Sprint explosivo y tiro cruzado', attr: 'pace', type: 'goal', bonus: 0.45 },
+                            { text: 'Recorte hacia adentro y rosca', attr: 'drib', type: 'goal', bonus: 0.43 },
+                            { text: 'Filtrar pase entre líneas', attr: 'pass', type: 'assist', bonus: 0.52 }
+                        ]
+                    }
+                ],
+                MED: [
+                    {
+                        prompt: 'Controlas en la frontal del área con espacio para organizar el ataque de tu equipo.',
+                        options: [
+                            { text: 'Pase filtrado milimétrico al delantero', attr: 'pass', type: 'assist', bonus: 0.55 },
+                            { text: 'Disparo lejano a la escuadra', attr: 'shot', type: 'goal', bonus: 0.38 },
+                            { text: 'Superar presión con regate y abrir banda', attr: 'drib', type: 'assist', bonus: 0.48 }
+                        ]
+                    },
+                    {
+                        prompt: 'El rival intenta salir jugando desde atrás y presionas en tres cuartos de cancha.',
+                        options: [
+                            { text: 'Interceptar pase y lanzar contraataque', attr: 'def', type: 'assist', bonus: 0.50 },
+                            { text: 'Llegada desde segunda línea y remate', attr: 'pace', type: 'goal', bonus: 0.42 },
+                            { text: 'Cambio de orientación preciso', attr: 'pass', type: 'assist', bonus: 0.52 }
+                        ]
+                    },
+                    {
+                        prompt: 'Tiro libre peligroso cerca del área rival. El entrenador te da la responsabilidad.',
+                        options: [
+                            { text: 'Disparo directo por encima de la barrera', attr: 'shot', type: 'goal', bonus: 0.42 },
+                            { text: 'Centro templado al segundo palo', attr: 'pass', type: 'assist', bonus: 0.54 },
+                            { text: 'Jugada ensayada en corto', attr: 'drib', type: 'assist', bonus: 0.46 }
+                        ]
+                    }
+                ],
+                DEF: [
+                    {
+                        prompt: 'El delantero estrella del rival encara hacia tu portería en un peligroso uno contra uno.',
+                        options: [
+                            { text: 'Entrada limpia a ras de césped', attr: 'def', type: 'save', bonus: 0.62 },
+                            { text: 'Cargar hombro con hombro y despejar', attr: 'phy', type: 'save', bonus: 0.60 },
+                            { text: 'Aguantar posición y cortar pase', attr: 'pace', type: 'save', bonus: 0.58 }
+                        ]
+                    },
+                    {
+                        prompt: 'Córner a favor de tu equipo. Subes a rematar al área rival.',
+                        options: [
+                            { text: 'Cabezazo imperial en el primer palo', attr: 'phy', type: 'goal', bonus: 0.36 },
+                            { text: 'Prolongación al segundo palo', attr: 'pass', type: 'assist', bonus: 0.44 },
+                            { text: 'Quedarse atento al rebote y asegurar', attr: 'def', type: 'save', bonus: 0.65 }
+                        ]
+                    },
+                    {
+                        prompt: 'Balón largo a la espalda de la defensa. Debes correr para evitar el gol rival.',
+                        options: [
+                            { text: 'Sprint máximo y cruce salvador', attr: 'pace', type: 'save', bonus: 0.62 },
+                            { text: 'Cobertura táctica y robo limpio', attr: 'def', type: 'save', bonus: 0.64 },
+                            { text: 'Despeje largo para iniciar contra', attr: 'pass', type: 'assist', bonus: 0.42 }
+                        ]
+                    }
+                ],
+                POR: [
+                    {
+                        prompt: '¡Penalti en contra! El lanzador rival toma carrera frente a ti.',
+                        options: [
+                            { text: 'Estirada felina a tu izquierda', attr: 'def', type: 'save', bonus: 0.58 },
+                            { text: 'Aguantar hasta el último segundo y volar', attr: 'phy', type: 'save', bonus: 0.60 },
+                            { text: 'Adivinar el lado derecho con reflejos', attr: 'pace', type: 'save', bonus: 0.58 }
+                        ]
+                    },
+                    {
+                        prompt: 'Disparo potente desde fuera del área que se cuela por la escuadra.',
+                        options: [
+                            { text: 'Vuelo espectacular a mano cambiada', attr: 'def', type: 'save', bonus: 0.64 },
+                            { text: 'Despeje de puños con seguridad', attr: 'phy', type: 'save', bonus: 0.62 },
+                            { text: 'Atrapar y sacar rápido al contragolpe', attr: 'pass', type: 'assist', bonus: 0.40 }
+                        ]
+                    },
+                    {
+                        prompt: 'Mano a mano tras un error defensivo. El delantero avanza solo.',
+                        options: [
+                            { text: 'Achicar espacios rápidamente', attr: 'pace', type: 'save', bonus: 0.62 },
+                            { text: 'Mantenerse firme y bloquear tiro', attr: 'def', type: 'save', bonus: 0.65 },
+                            { text: 'Anticipar el regate y atrapar balón', attr: 'drib', type: 'save', bonus: 0.58 }
+                        ]
+                    }
+                ]
+            };
+
+            const list = scenarios[pos] || scenarios.DEL;
+            return list[momentIndex % list.length];
+        }
+
+        // Iniciar Partido Interactivo
+        document.getElementById('play-interactive-btn').addEventListener('click', () => {
+            const p = gameState.player;
+            if (p.energy < 20) {
+                showToast('Tu energía es muy baja (<20%). Pide descanso o arriesgas lesión.', 'warning');
+                return;
+            }
+            playSound('whistle');
+
+            const match = getNextPlayerMatch();
+            const homeClub = gameState.clubs.find(c => c.id === match.homeId);
+            const awayClub = gameState.clubs.find(c => c.id === match.awayId);
+            const isPlayerHome = homeClub.id === p.clubId;
+
+            gameState.liveMatch = {
+                match,
+                homeClub,
+                awayClub,
+                isPlayerHome,
+                homeGoals: 0,
+                awayGoals: 0,
+                moment: 0,
+                minutes: [18, 54, 83],
+                playerGoals: 0,
+                playerAssists: 0,
+                rating: 6.5,
+                feed: [`0' - ¡Comienza el partido entre ${homeClub.name} y ${awayClub.name}!`]
+            };
+
+            // Simular algún gol de fondo inicial según fuerza de equipos
+            if (Math.random() < 0.35) {
+                if (homeClub.ovr >= awayClub.ovr) {
+                    gameState.liveMatch.homeGoals++;
+                    gameState.liveMatch.feed.unshift(`9' - ⚽ Gol temprano de ${homeClub.name}.`);
+                } else {
+                    gameState.liveMatch.awayGoals++;
+                    gameState.liveMatch.feed.unshift(`11' - ⚽ Gol temprano de ${awayClub.name}.`);
+                }
+            }
+
+            document.getElementById('pre-match-panel').classList.add('hidden');
+            document.getElementById('post-match-panel').classList.add('hidden');
+            document.getElementById('live-match-panel').classList.remove('hidden');
+
+            renderLiveMatchStep();
+        });
+
+        function renderLiveMatchStep() {
+            const lm = gameState.liveMatch;
+            const p = gameState.player;
+
+            document.getElementById('live-home-badge').innerHTML = generateClubBadgeSVG(lm.homeClub, 'w-10 h-10');
+            document.getElementById('live-away-badge').innerHTML = generateClubBadgeSVG(lm.awayClub, 'w-10 h-10');
+            document.getElementById('live-home-name').textContent = lm.homeClub.name;
+            document.getElementById('live-away-name').textContent = lm.awayClub.name;
+            document.getElementById('live-home-score').textContent = lm.homeGoals;
+            document.getElementById('live-away-score').textContent = lm.awayGoals;
+            document.getElementById('live-minute').textContent = `MIN ${lm.minutes[lm.moment]}'`;
+
+            document.getElementById('live-player-rating').textContent = lm.rating.toFixed(1);
+            document.getElementById('live-player-goals').textContent = lm.playerGoals;
+            document.getElementById('live-player-assists').textContent = lm.playerAssists;
+
+            // Renderizar crónica
+            document.getElementById('match-feed').innerHTML = lm.feed.map(line =>
+                `<div class="py-1 border-b border-slate-800/50 last:border-none">${line}</div>`
+            ).join('');
+
+            // Renderizar escenario
+            const scenario = getInteractiveScenario(p.pos, lm.moment);
+            document.getElementById('decision-prompt').textContent = scenario.prompt;
+
+            const optionsDiv = document.getElementById('decision-options');
+            optionsDiv.innerHTML = '';
+
+            scenario.options.forEach(opt => {
+                const attrVal = p.attrs[opt.attr];
+                const energyPenalty = p.energy < 45 ? 0.85 : 1.0;
+                const prob = Math.min(92, Math.max(25, Math.round(((attrVal / 100) * 0.65 + opt.bonus * 0.55) * 100 * energyPenalty)));
+
+                const btn = document.createElement('button');
+                btn.className = 'p-3 rounded-xl bg-slate-800/90 hover:bg-emerald-500/20 border border-slate-700 hover:border-emerald-500 text-left transition flex flex-col justify-between cursor-pointer';
+                btn.innerHTML = `
+                    <span class="text-xs sm:text-sm font-bold text-white leading-snug mb-2">${opt.text}</span>
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="uppercase text-slate-400 font-semibold">${opt.attr.toUpperCase()} (${attrVal})</span>
+                        <span class="font-bold text-emerald-400">${prob}% Éxito</span>
+                    </div>
+                `;
+                btn.addEventListener('click', () => handleLiveDecision(opt, prob));
+                optionsDiv.appendChild(btn);
+            });
+        }
+
+        function handleLiveDecision(opt, probPercent) {
+            const lm = gameState.liveMatch;
+            const p = gameState.player;
+            const min = lm.minutes[lm.moment];
+            const success = (Math.random() * 100) <= probPercent;
+
+            if (success) {
+                playSound('goal');
+                if (opt.type === 'goal') {
+                    lm.playerGoals++;
+                    lm.rating = Math.min(10.0, lm.rating + 1.1);
+                    if (lm.isPlayerHome) lm.homeGoals++; else lm.awayGoals++;
+                    lm.feed.unshift(`${min}' - 🔥 ¡GOOOOL DE ${p.name.toUpperCase()}! Gran definición para adelantar a ${getPlayerClub().name}.`);
+                    showToast(`¡GOOOL de ${p.name}! (+1.1 Nota)`, 'success');
+                } else if (opt.type === 'assist') {
+                    lm.playerAssists++;
+                    lm.rating = Math.min(10.0, lm.rating + 0.85);
+                    if (lm.isPlayerHome) lm.homeGoals++; else lm.awayGoals++;
+                    lm.feed.unshift(`${min}' - 🎯 ¡ASISTENCIA DE ${p.name.toUpperCase()}! Jugada brillante que termina en gol.`);
+                    showToast(`¡Asistencia de ${p.name}! (+0.85 Nota)`, 'success');
+                } else if (opt.type === 'save') {
+                    lm.rating = Math.min(10.0, lm.rating + 0.8);
+                    lm.feed.unshift(`${min}' - 🛡️ ¡INTERVENCIÓN CLAVE DE ${p.name.toUpperCase()}! Evitó un gol cantado del rival.`);
+                    showToast(`¡Acción defensiva espectacular! (+0.8 Nota)`, 'success');
+                }
+            } else {
+                playSound('click');
+                lm.rating = Math.max(4.5, lm.rating - 0.25);
+                if (opt.type === 'save' && Math.random() < 0.55) {
+                    if (lm.isPlayerHome) lm.awayGoals++; else lm.homeGoals++;
+                    lm.feed.unshift(`${min}' - ❌ No lograste frenar el ataque y el rival marca gol.`);
+                } else {
+                    lm.feed.unshift(`${min}' - ⚠️ ${p.name} lo intentó (${opt.text.toLowerCase()}), pero el rival logró despejar.`);
+                }
+            }
+
+            // Evento aleatorio de compañeros entre momentos
+            if (Math.random() < 0.35) {
+                const homeAdv = lm.homeClub.ovr >= lm.awayClub.ovr;
+                if (homeAdv) {
+                    lm.homeGoals++;
+                    lm.feed.unshift(`${min + 6}' - ⚽ Gol de ${lm.homeClub.name} tras jugada colectiva.`);
+                } else {
+                    lm.awayGoals++;
+                    lm.feed.unshift(`${min + 6}' - ⚽ Gol de ${lm.awayClub.name} al contragolpe.`);
+                }
+            }
+
+            lm.moment++;
+            if (lm.moment < 3) {
+                renderLiveMatchStep();
+            } else {
+                finishPlayerMatch(lm.homeGoals, lm.awayGoals, lm.playerGoals, lm.playerAssists, lm.rating);
+            }
+        }
+
+        // Simulación Rápida del Partido
+        document.getElementById('quick-sim-btn').addEventListener('click', () => {
+            const p = gameState.player;
+            if (p.energy < 15) {
+                showToast('Estás agotado (<15% energía). Pide descanso para recuperarte.', 'warning');
+                return;
+            }
+            playSound('whistle');
+
+            const match = getNextPlayerMatch();
+            const homeClub = gameState.clubs.find(c => c.id === match.homeId);
+            const awayClub = gameState.clubs.find(c => c.id === match.awayId);
+            const isPlayerHome = homeClub.id === p.clubId;
+
+            const res = simulateAIMatch(homeClub, awayClub);
+            let pGoals = 0;
+            let pAssists = 0;
+
+            const teamGoals = isPlayerHome ? res.homeGoals : res.awayGoals;
+            if (teamGoals > 0) {
+                if (p.pos === 'DEL') {
+                    if (Math.random() < (p.ovr / 115)) pGoals = Math.min(teamGoals, Math.random() < 0.25 ? 2 : 1);
+                    if (teamGoals > pGoals && Math.random() < 0.35) pAssists = 1;
+                } else if (p.pos === 'MED') {
+                    if (Math.random() < (p.ovr / 130)) pAssists = 1;
+                    if (Math.random() < 0.28) pGoals = 1;
+                } else {
+                    if (Math.random() < 0.14) pGoals = 1;
+                }
+            }
+
+            const baseRating = 6.4 + (pGoals * 1.1) + (pAssists * 0.8) + (Math.random() * 0.9);
+            finishPlayerMatch(res.homeGoals, res.awayGoals, pGoals, pAssists, Math.min(10, baseRating));
+        });
+
+        // Pedir Descanso
+        document.getElementById('rest-match-btn').addEventListener('click', () => {
+            playSound('click');
+            const p = gameState.player;
+            const match = getNextPlayerMatch();
+            const homeClub = gameState.clubs.find(c => c.id === match.homeId);
+            const awayClub = gameState.clubs.find(c => c.id === match.awayId);
+
+            const res = simulateAIMatch(homeClub, awayClub);
+            match.homeGoals = res.homeGoals;
+            match.awayGoals = res.awayGoals;
+            match.played = true;
+            applyMatchResultToTable(homeClub, awayClub, res.homeGoals, res.awayGoals);
+
+            simulateOtherMatchesInMatchday(true);
+
+            p.energy = Math.min(100, p.energy + 35);
+            p.morale = Math.max(20, p.morale - 4);
+
+            showToast(`Descansaste esta jornada (+35% Energía, -4% Confianza DT).`, 'info');
+            advanceMatchdayOrEndSeason();
+        });
+
+        function finishPlayerMatch(homeGoals, awayGoals, pGoals, pAssists, finalRating) {
+            const p = gameState.player;
+            const match = getNextPlayerMatch();
+            const homeClub = gameState.clubs.find(c => c.id === match.homeId);
+            const awayClub = gameState.clubs.find(c => c.id === match.awayId);
+            const isPlayerHome = homeClub.id === p.clubId;
+
+            match.homeGoals = homeGoals;
+            match.awayGoals = awayGoals;
+            match.played = true;
+            applyMatchResultToTable(homeClub, awayClub, homeGoals, awayGoals);
+
+            // Simular el resto de la jornada en ambas divisiones
+            simulateOtherMatchesInMatchday(true);
+
+            // Actualizar estadísticas jugador
+            const ratingRounded = parseFloat(finalRating.toFixed(1));
+            p.seasonStats.apps++;
+            p.seasonStats.goals += pGoals;
+            p.seasonStats.assists += pAssists;
+            p.seasonStats.ratingSum += ratingRounded;
+
+            p.careerStats.apps++;
+            p.careerStats.goals += pGoals;
+            p.careerStats.assists += pAssists;
+
+            // Energía y Moral
+            p.energy = Math.max(10, p.energy - 18);
+            const teamWon = isPlayerHome ? (homeGoals > awayGoals) : (awayGoals > homeGoals);
+            const moraleDelta = (ratingRounded >= 7.5 ? 5 : ratingRounded >= 6.5 ? 2 : -3) + (teamWon ? 2 : 0);
+            p.morale = Math.min(100, Math.max(15, p.morale + moraleDelta));
+
+            // Puntos de habilidad ganados
+            let spGained = 1;
+            if (ratingRounded >= 8.2 || (pGoals + pAssists) >= 2) spGained = 2;
+            if (ratingRounded >= 9.3) spGained = 3;
+            p.skillPoints += spGained;
+
+            // Mostrar resumen post-partido
+            document.getElementById('live-match-panel').classList.add('hidden');
+            document.getElementById('pre-match-panel').classList.add('hidden');
+            document.getElementById('post-match-panel').classList.remove('hidden');
+
+            document.getElementById('post-home-name').textContent = homeClub.name;
+            document.getElementById('post-away-name').textContent = awayClub.name;
+            document.getElementById('post-home-score').textContent = homeGoals;
+            document.getElementById('post-away-score').textContent = awayGoals;
+
+            document.getElementById('post-rating').textContent = ratingRounded.toFixed(1);
+            document.getElementById('post-ga').textContent = `${pGoals}G / ${pAssists}A`;
+            document.getElementById('post-sp-gained').textContent = `+${spGained} PH`;
+            document.getElementById('post-morale-change').textContent = `${moraleDelta >= 0 ? '+' : ''}${moraleDelta}%`;
+
+            renderAllHub();
+        }
+
+        document.getElementById('continue-next-day-btn').addEventListener('click', () => {
+            playSound('click');
+            document.getElementById('post-match-panel').classList.add('hidden');
+            document.getElementById('pre-match-panel').classList.remove('hidden');
+            advanceMatchdayOrEndSeason();
+        });
+
+        // =========================================================================
+        // 8. AVANCE DE JORNADA Y FIN DE TEMPORADA (ASCENSOS / DESCENSOS / PREMIOS)
+        // =========================================================================
+        function getSortedStandings(divNum) {
+            return gameState.clubs
+                .filter(c => c.div === divNum)
+                .sort((a, b) => {
+                    if (b.pts !== a.pts) return b.pts - a.pts;
+                    const dgA = a.gf - a.gc;
+                    const dgB = b.gf - b.gc;
+                    if (dgB !== dgA) return dgB - dgA;
+                    return b.gf - a.gf;
+                });
+        }
+
+        function advanceMatchdayOrEndSeason() {
+            // Recuperación ligera entre jornadas
+            gameState.player.energy = Math.min(100, gameState.player.energy + 8);
+
+            // Ventana de mitad de temporada (Jornada 9)
+            if (gameState.matchday === 9) {
+                generateTransferOffers();
+                showToast('¡Se abrió el mercado de invierno! Revisa nuevas ofertas de fichaje.', 'info');
+            }
+
+            if (gameState.matchday < 18) {
+                gameState.matchday++;
+                renderAllHub();
+            } else {
+                processEndOfSeason();
+            }
+        }
+
+        // =========================================================================
+        // GALA DE PREMIOS: catálogo, nominaciones y votación por rendimiento
+        // =========================================================================
+        const GALA_AWARDS = [
+            { id:'ballon', name:'Balón de Oro', org:'France Football', icon:'🏆', group:'Premios mundiales' },
+            { id:'thebest', name:'The Best FIFA', org:'FIFA', icon:'🌟', group:'Premios mundiales' },
+            { id:'uefa', name:'Jugador del Año UEFA', org:'UEFA', icon:'⭐', group:'Premios mundiales' },
+            { id:'kopa', name:'Trofeo Kopa', org:'France Football', icon:'💎', group:'Premios jóvenes', young:true },
+            { id:'goldenboy', name:'Golden Boy', org:'Tuttosport', icon:'🚀', group:'Premios jóvenes', young:true },
+            { id:'yashin', name:'Trofeo Yashin', org:'France Football', icon:'🧤', group:'Premios por posición', positions:['POR'] },
+            { id:'gerdmuller', name:'Trofeo Gerd Müller', org:'France Football', icon:'⚽', group:'Premios por rendimiento', scorer:true },
+            { id:'puskas', name:'Premio Puskás', org:'FIFA', icon:'🎯', group:'Premios por rendimiento', scorer:true },
+            { id:'socrates', name:'Premio Sócrates', org:'France Football', icon:'🤝', group:'Premios especiales' },
+            { id:'fifpro', name:'FIFPRO World 11', org:'FIFPRO', icon:'🌍', group:'Equipos ideales' },
+            { id:'uefaxi', name:'Equipo del Año UEFA', org:'UEFA', icon:'🔷', group:'Equipos ideales' },
+            { id:'league', name:'Jugador de la Temporada', org:'Liga RPH', icon:'🥇', group:'Premios de liga' },
+            { id:'topscorer', name:'Máximo Goleador', org:'Liga RPH', icon:'👟', group:'Premios de liga', scorer:true },
+            { id:'playmaker', name:'Mejor Creador de Juego', org:'IFFHS / RPH', icon:'🎨', group:'Premios por posición', creator:true },
+            { id:'defender', name:'Mejor Defensa', org:'Liga RPH', icon:'🛡️', group:'Premios por posición', positions:['DFC','LI','LD','CAI','CAD','MCD'] },
+            { id:'midfielder', name:'Mejor Centrocampista', org:'Liga RPH', icon:'🎮', group:'Premios por posición', positions:['MCD','MC','MCO','MI','MD'] },
+            { id:'forward', name:'Mejor Delantero', org:'Liga RPH', icon:'🔥', group:'Premios por posición', positions:['EI','ED','SD','DC'] },
+            { id:'young', name:'Mejor Jugador Joven', org:'Liga RPH', icon:'🌱', group:'Premios jóvenes', young:true },
+            { id:'international', name:'Jugador Internacional del Año', org:'RPH Selecciones', icon:'🌐', group:'Premios de selecciones', international:true }
+        ];
+
+        function getGalaPlayerScore(award, avgRating) {
+            const p = gameState.player;
+            const st = p.seasonStats;
+            const ns = p.nationalStats || { caps:0, goals:0, assists:0 };
+            let score = 24 + avgRating * 6.2 + p.ovr * 0.20 + st.apps * 0.36 + st.goals * 1.55 + st.assists * 1.05;
+            if (award.young) score += p.age <= 19 ? 12 : p.age <= 21 ? 7 : -45;
+            if (award.positions) score += award.positions.includes(p.pos) ? 15 : -55;
+            if (award.scorer) score += st.goals * 1.2;
+            if (award.creator) score += st.assists * 2.0 + st.goals * 0.25;
+            if (award.international) score += ns.caps * 0.8 + ns.goals * 2.0 + ns.assists * 1.4;
+            if (award.id === 'yashin') score += p.pos === 'POR' ? p.attrs.def * 0.15 + p.attrs.phy * 0.1 : -70;
+            if (award.id === 'socrates') score += p.morale * 0.06;
+            if (award.id === 'league') score += st.apps >= 10 ? 8 : -20;
+            if (award.id === 'ballon' || award.id === 'thebest' || award.id === 'uefa' || award.id === 'fifpro' || award.id === 'uefaxi') score += p.ovr >= 85 ? 8 : 0;
+            return Math.max(0, Math.min(100, score));
+        }
+
+        function runSeasonGala(avgRating) {
+            const p = gameState.player;
+            const playerClub = getPlayerClub();
+            const results = [];
+            const rivalNames = ['Mateo Silva','Luca Moretti','Noah Williams','Thiago Costa','Hugo Martín','Ethan Brooks','Santiago Pérez','Kylian Diallo','Marco Fischer'];
+            GALA_AWARDS.forEach(award => {
+                const playerScore = getGalaPlayerScore(award, avgRating);
+                const eligible = playerScore >= 48 && p.seasonStats.apps >= 4;
+                const candidates = [];
+                if (eligible) candidates.push({ name:p.name, score:playerScore, isPlayer:true, club:playerClub.name });
+                for (let i=0; i<3; i++) {
+                    const name = rivalNames[(gameState.season * 3 + i + GALA_AWARDS.indexOf(award)) % rivalNames.length];
+                    const base = 61 + Math.random()*31;
+                    candidates.push({ name, score:Math.min(99,base), isPlayer:false, club:['Real Madrid','Manchester City','Inter','Bayern','PSG'][i%5] });
+                }
+                candidates.sort((a,b)=>b.score-a.score);
+                const podium = candidates.slice(0,3).map((c,i)=>({ ...c, place:i+1 }));
+                const playerPlace = candidates.findIndex(c=>c.isPlayer)+1;
+                const won = playerPlace === 1;
+                const nominated = playerPlace > 0 && playerPlace <= 3;
+                if (won) p.trophies.push(`${award.icon} ${award.name} (Temporada ${gameState.season})`);
+                results.push({ id:award.id, name:award.name, icon:award.icon, org:award.org, winner:podium[0].name, winnerClub:podium[0].club, podium, playerPlace:nominated?playerPlace:null, won });
+            });
+            const gala = { season:gameState.season, playerName:p.name, club:playerClub.name, avgRating:+avgRating.toFixed(1), results, wins:results.filter(r=>r.won).length, nominations:results.filter(r=>r.playerPlace).length };
+            gameState.galaHistory = gameState.galaHistory || [];
+            gameState.galaHistory.push(gala);
+            return gala;
+        }
+
+        function renderGalaTab() {
+            const history = gameState.galaHistory || [];
+            const latest = history[history.length-1];
+            const wins = history.reduce((n,g)=>n+g.wins,0);
+            const noms = history.reduce((n,g)=>n+g.nominations,0);
+            document.getElementById('gala-current-season').textContent = gameState.season;
+            document.getElementById('gala-total-awards').textContent = GALA_AWARDS.length;
+            document.getElementById('gala-player-wins').textContent = wins;
+            document.getElementById('gala-nominations').textContent = noms;
+            document.getElementById('gala-seasons').textContent = history.length;
+            const groups = [...new Set(GALA_AWARDS.map(a=>a.group))];
+            document.getElementById('gala-award-catalog').innerHTML = groups.map(group=>`<div class="sm:col-span-2 lg:col-span-3 mt-2 text-xs font-extrabold uppercase tracking-widest text-amber-300">${group}</div>` + GALA_AWARDS.filter(a=>a.group===group).map(a=>`<div class="flex items-center gap-3 bg-slate-900/70 border border-slate-800 rounded-xl p-3"><span class="text-2xl">${a.icon}</span><div class="min-w-0"><div class="text-sm font-bold text-white">${a.name}</div><div class="text-[10px] text-slate-500">${a.org}</div></div></div>`).join('')).join('');
+            const renderOne = gala => `<div class="rounded-xl border border-slate-800 bg-slate-900/60 p-4"><div class="flex flex-wrap justify-between gap-2 mb-3"><div class="font-sport text-xl font-bold text-amber-300">Gala · Temporada ${gala.season}</div><div class="text-xs text-slate-400">${gala.wins} premios ganados · ${gala.nominations} nominaciones</div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-2">${gala.results.map(r=>`<div class="rounded-lg bg-slate-950/70 border ${r.won?'border-amber-400/60':'border-slate-800'} p-3"><div class="flex justify-between gap-2"><span class="text-xs font-bold text-white">${r.icon} ${r.name}</span><span class="text-[10px] ${r.won?'text-amber-300':'text-slate-500'}">${r.won?'¡GANASTE!':r.playerPlace?`#${r.playerPlace} para ti`:'Sin nominación'}</span></div><div class="text-xs text-slate-300 mt-1">Ganador: <b>${r.winner}</b> <span class="text-slate-500">(${r.winnerClub})</span></div><div class="text-[10px] text-slate-500 mt-1">${r.podium.map(x=>`${x.place}. ${x.name}`).join(' · ')}</div></div>`).join('')}</div></div>`;
+            document.getElementById('gala-latest-results').innerHTML = latest ? renderOne(latest) : '<p class="text-sm text-slate-400">La primera gala se celebrará al terminar tu primera temporada.</p>';
+            document.getElementById('gala-history').innerHTML = history.length ? history.slice().reverse().map(renderOne).join('') : '<p class="text-sm text-slate-400">Todavía no hay temporadas registradas.</p>';
+        }
+
+        function processEndOfSeason() {
+            playSound('goal');
+            const p = gameState.player;
+            const playerClub = getPlayerClub();
+            const tableDiv1 = getSortedStandings(1);
+            const tableDiv2 = getSortedStandings(2);
+
+            const champDiv1 = tableDiv1[0];
+            const champDiv2 = tableDiv2[0];
+            const promoted = [tableDiv2[0], tableDiv2[1]];
+            const relegated = [tableDiv1[8], tableDiv1[9]];
+
+            const avgRating = p.seasonStats.apps > 0
+                ? (p.seasonStats.ratingSum / p.seasonStats.apps)
+                : 0;
+
+            const seasonEvents = [];
+            const gala = runSeasonGala(avgRating);
+            seasonEvents.push(`<div class="p-3 rounded-xl bg-sky-500/15 border border-sky-500/40 text-sky-200 font-bold">🏅 Gala Mundial RPH: ${gala.wins} premios ganados y ${gala.nominations} nominaciones. Consulta la pestaña Gala para ver votaciones y podios.</div>`);
+
+            // Verificar títulos de equipo
+            if (playerClub.div === 1 && champDiv1.id === playerClub.id) {
+                p.trophies.push(`🏆 Campeón Primera División (Temp. ${gameState.season} - ${playerClub.name})`);
+                seasonEvents.push(`<div class="p-3 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-300 font-bold">🏆 ¡CAMPEÓN DE PRIMERA DIVISIÓN con ${playerClub.name}!</div>`);
+            }
+            if (playerClub.div === 2 && champDiv2.id === playerClub.id) {
+                p.trophies.push(`🥇 Campeón Segunda División (Temp. ${gameState.season} - ${playerClub.name})`);
+                seasonEvents.push(`<div class="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 font-bold">🥇 ¡CAMPEÓN DE SEGUNDA DIVISIÓN con ${playerClub.name}!</div>`);
+            }
+
+            // Premios Individuales
+            if (p.seasonStats.goals >= 14) {
+                p.trophies.push(`👟 Bota de Oro (Temp. ${gameState.season} - ${p.seasonStats.goals} goles)`);
+                seasonEvents.push(`<div class="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 font-semibold">👟 ¡Ganaste la BOTA DE ORO con ${p.seasonStats.goals} goles!</div>`);
+            }
+            if (avgRating >= 8.2 && p.ovr >= 82 && playerClub.div === 1) {
+                p.trophies.push(`🌟 Balón de Oro Rph (Temp. ${gameState.season})`);
+                seasonEvents.push(`<div class="p-3 rounded-xl bg-yellow-500/20 border border-yellow-400 text-yellow-300 font-extrabold">🌟 ¡GANASTE EL BALÓN DE ORO! Eres el mejor jugador del mundo.</div>`);
+            }
+
+            // Guardar historial de la temporada
+            p.history.push({
+                season: gameState.season,
+                club: playerClub.name,
+                div: playerClub.div,
+                ovr: p.ovr,
+                apps: p.seasonStats.apps,
+                goals: p.seasonStats.goals,
+                assists: p.seasonStats.assists,
+                avgRating: avgRating.toFixed(1)
+            });
+
+            // Ejecutar Ascensos y Descensos
+            promoted.forEach(c => { c.div = 1; });
+            relegated.forEach(c => { c.div = 2; });
+
+            seasonEvents.push(`
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <div class="text-xs font-bold uppercase text-emerald-400">⬆️ Ascienden a Primera División:</div>
+                    <div class="text-white font-semibold">${promoted[0].name} y ${promoted[1].name}</div>
+                </div>
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <div class="text-xs font-bold uppercase text-rose-400">⬇️ Descienden a Segunda División:</div>
+                    <div class="text-white font-semibold">${relegated[0].name} y ${relegated[1].name}</div>
+                </div>
+            `);
+
+            // Mostrar Modal de Fin de Temporada
+            document.getElementById('modal-title').textContent = `Fin de Temporada ${gameState.season}`;
+            document.getElementById('modal-subtitle').textContent = `Campeón 1ra: ${champDiv1.name} • Campeón 2da: ${champDiv2.name}`;
+            document.getElementById('modal-body').innerHTML = seasonEvents.join('');
+            const modal = document.getElementById('season-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            // Preparar nueva temporada
+            gameState.season++;
+            gameState.matchday = 1;
+            p.age++;
+            p.energy = 100;
+            p.skillPoints += 2;
+            p.seasonStats = { apps: 0, goals: 0, assists: 0, ratingSum: 0 };
+            updatePlayerFinances();
+
+            // Reiniciar estadísticas de tabla de todos los clubes
+            gameState.clubs.forEach(c => {
+                c.pj = 0; c.g = 0; c.e = 0; c.p = 0; c.gf = 0; c.gc = 0; c.pts = 0;
+            });
+
+            generateSeasonSchedules();
+            generateTransferOffers();
+            gameState.viewingStandingsDiv = getPlayerClub().div;
+            renderAllHub();
+        }
+
+        document.getElementById('modal-close-btn').addEventListener('click', () => {
+            playSound('click');
+            const modal = document.getElementById('season-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            showToast(`Comienza la Temporada ${gameState.season}. ¡Nuevas ofertas en el Mercado de Fichajes!`, 'success');
+        });
+
+        // =========================================================================
+        // 9. ENTRENAMIENTO Y MEJORA DE ATRIBUTOS
+        // =========================================================================
+        function renderTrainingTab() {
+            const p = gameState.player;
+            document.getElementById('training-sp-display').textContent = `${p.skillPoints} PH`;
+
+            const grid = document.getElementById('attributes-upgrade-grid');
+            grid.innerHTML = ATTR_META.map(m => {
+                const val = p.attrs[m.key];
+                const canUpgrade = p.skillPoints > 0 && val < 99;
+                return `
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex items-center justify-between gap-3">
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                    <i class="fa-solid ${m.icon} ${m.color}"></i> ${m.label}
+                                </span>
+                                <span class="font-sport text-xl font-extrabold text-white">${val}</span>
+                            </div>
+                            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-emerald-500 to-amber-400 transition-all duration-300" style="width: ${val}%"></div>
+                            </div>
+                        </div>
+                        <button data-attr="${m.key}" ${!canUpgrade ? 'disabled' : ''}
+                            class="upgrade-attr-btn w-10 h-10 rounded-xl font-extrabold text-lg flex items-center justify-center transition ${
+                                canUpgrade 
+                                ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md cursor-pointer' 
+                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                            }">
+                            +1
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            document.querySelectorAll('.upgrade-attr-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const attrKey = btn.dataset.attr;
+                    if (p.skillPoints <= 0 || p.attrs[attrKey] >= 99) return;
+
+                    playSound('upgrade');
+                    p.skillPoints--;
+                    p.attrs[attrKey]++;
+                    const oldOvr = p.ovr;
+                    p.ovr = calculatePlayerOVR(p.attrs, p.pos);
+                    updatePlayerFinances();
+
+                    if (p.ovr > oldOvr) {
+                        showToast(`¡SUBISTE DE MEDIA! Ahora tienes ${p.ovr} OVR.`, 'success');
+                        generateTransferOffers();
+                    }
+                    renderAllHub();
+                });
+            });
+        }
+
+        document.getElementById('extra-training-btn').addEventListener('click', () => {
+            const p = gameState.player;
+            if (p.energy < 25) {
+                showToast('No tienes suficiente energía para entrenar extra (mínimo 25%).', 'warning');
+                return;
+            }
+            playSound('upgrade');
+            p.energy -= 20;
+            p.skillPoints += 1;
+            p.morale = Math.min(100, p.morale + 4);
+            showToast('¡Entrenamiento completado! +1 Punto de Habilidad y +4% Confianza DT.', 'success');
+            renderAllHub();
+        });
+
+        // =========================================================================
+        // 10. MERCADO DE FICHAJES
+        // =========================================================================
+        function generateTransferOffers() {
+            const p = gameState.player;
+            const currentClub = getPlayerClub();
+
+            // Filtrar clubes distintos al actual cuyo nivel sea acorde al OVR del jugador
+            const candidates = gameState.clubs.filter(c => {
+                if (c.id === currentClub.id) return false;
+                // Clubes élite (88+) requieren al menos 79+ OVR
+                if (c.ovr >= 90) return p.ovr >= 81;
+                if (c.ovr >= 87) return p.ovr >= 78;
+                if (c.ovr >= 84) return p.ovr >= 75;
+                return true;
+            });
+
+            // Ordenar por cercanía de nivel y elegir hasta 4 ofertas
+            const shuffled = candidates.sort(() => 0.5 - Math.random()).slice(0, 4);
+            gameState.transferOffers = shuffled.map(club => {
+                const salaryOffer = Math.round(p.wage * (1.1 + (club.ovr - 78) * 0.04));
+                const role = (p.ovr >= club.ovr - 4) ? 'Estrella Titular' : (p.ovr >= club.ovr - 8) ? 'Jugador Importante' : 'Promesa / Rotación';
+                return {
+                    clubId: club.id,
+                    salary: salaryOffer,
+                    role
+                };
+            });
+        }
+
+        function renderTransfersTab() {
+            const container = document.getElementById('transfer-offers-container');
+            const offers = gameState.transferOffers;
+
+            if (!offers || offers.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 bg-slate-900/60 rounded-2xl border border-slate-800">
+                        <i class="fa-solid fa-envelope-open text-3xl text-slate-600 mb-2"></i>
+                        <p class="text-sm text-slate-400">No hay ofertas activas en este momento. Sigue jugando y subiendo tu OVR para atraer clubes grandes.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = offers.map(offer => {
+                const club = gameState.clubs.find(c => c.id === offer.clubId);
+                if (!club) return '';
+                return `
+                    <div class="bg-slate-900/90 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition">
+                        <div class="flex items-center gap-3.5">
+                            ${generateClubBadgeSVG(club, 'w-14 h-14 flex-shrink-0')}
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h4 class="font-sport text-xl font-bold text-white">${club.name}</h4>
+                                    <span class="px-2 py-0.5 rounded bg-slate-800 text-amber-400 font-sport font-bold text-xs">${club.ovr} OVR</span>
+                                    <span class="px-2 py-0.5 rounded ${club.div === 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-sky-500/20 text-sky-300'} text-[11px] font-bold">
+                                        ${club.div === 1 ? 'Primera División' : 'Segunda División'}
+                                    </span>
+                                </div>
+                                <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                                    <span><i class="fa-solid fa-user-tag text-emerald-400 mr-1"></i>Rol: <strong class="text-slate-200">${offer.role}</strong></span>
+                                    <span><i class="fa-solid fa-money-bill-wave text-amber-400 mr-1"></i>Salario: <strong class="text-amber-300">${formatMoney(offer.salary)}/sem</strong></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button data-club-id="${club.id}" data-salary="${offer.salary}"
+                            class="accept-transfer-btn px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold font-sport text-sm uppercase tracking-wider shadow cursor-pointer whitespace-nowrap">
+                            Aceptar Fichaje
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            document.querySelectorAll('.accept-transfer-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const targetClubId = btn.dataset.clubId;
+                    const newSalary = parseInt(btn.dataset.salary, 10);
+                    const targetClub = gameState.clubs.find(c => c.id === targetClubId);
+
+                    playSound('goal');
+                    gameState.player.clubId = targetClubId;
+                    gameState.player.wage = newSalary;
+                    gameState.player.morale = 85;
+                    gameState.viewingStandingsDiv = targetClub.div;
+                    generateTransferOffers();
+
+                    renderAllHub();
+                    showToast(`¡FICHAJE BOMBA! Ahora eres nuevo jugador de ${targetClub.name}.`, 'success');
+                });
+            });
+        }
+
+        // =========================================================================
+        // 11. RENDERIZADO DE TABLAS, PALMARÉS Y HUB PRINCIPAL
+        // =========================================================================
+        function renderStandingsTable() {
+            const divNum = gameState.viewingStandingsDiv;
+            const sorted = getSortedStandings(divNum);
+            const playerClubId = gameState.player.clubId;
+
+            // Actualizar botones de filtro
+            const btn1 = document.getElementById('view-div1-btn');
+            const btn2 = document.getElementById('view-div2-btn');
+            if (divNum === 1) {
+                btn1.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-emerald-500 text-slate-950';
+                btn2.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer text-slate-400 hover:text-white';
+            } else {
+                btn2.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer bg-emerald-500 text-slate-950';
+                btn1.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer text-slate-400 hover:text-white';
+            }
+
+            const tbody = document.getElementById('standings-tbody');
+            tbody.innerHTML = sorted.map((club, idx) => {
+                const pos = idx + 1;
+                const dg = club.gf - club.gc;
+                const isPlayerClub = club.id === playerClubId;
+
+                let posBadgeClass = 'text-slate-400';
+                if (divNum === 1 && pos === 1) posBadgeClass = 'bg-amber-500/20 text-amber-400 border border-amber-500/40';
+                else if (divNum === 1 && pos >= 9) posBadgeClass = 'bg-rose-500/20 text-rose-400 border border-rose-500/40';
+                else if (divNum === 2 && pos <= 2) posBadgeClass = 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40';
+
+                return `
+                    <tr class="${isPlayerClub ? 'bg-emerald-500/15 font-semibold' : 'hover:bg-slate-900/60'} transition">
+                        <td class="py-2.5 px-3 text-center">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold ${posBadgeClass}">${pos}</span>
+                        </td>
+                        <td class="py-2.5 px-3">
+                            <div class="flex items-center gap-2.5">
+                                ${generateClubBadgeSVG(club, 'w-7 h-7 flex-shrink-0')}
+                                <span class="${isPlayerClub ? 'text-emerald-300 font-bold' : 'text-white'} truncate max-w-[140px] sm:max-w-none">${club.name}</span>
+                            </div>
+                        </td>
+                        <td class="py-2.5 px-2 text-center text-amber-400 font-sport font-bold">${club.ovr}</td>
+                        <td class="py-2.5 px-2 text-center text-slate-300">${club.pj}</td>
+                        <td class="py-2.5 px-2 text-center text-slate-300">${club.g}</td>
+                        <td class="py-2.5 px-2 text-center text-slate-300">${club.e}</td>
+                        <td class="py-2.5 px-2 text-center text-slate-300">${club.p}</td>
+                        <td class="py-2.5 px-2 text-center text-slate-400 hidden sm:table-cell">${club.gf}</td>
+                        <td class="py-2.5 px-2 text-center text-slate-400 hidden sm:table-cell">${club.gc}</td>
+                        <td class="py-2.5 px-2 text-center ${dg > 0 ? 'text-emerald-400' : dg < 0 ? 'text-rose-400' : 'text-slate-400'}">${dg > 0 ? '+' + dg : dg}</td>
+                        <td class="py-2.5 px-3 text-center font-extrabold text-white">${club.pts}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            const legend = document.getElementById('standings-legend');
+            if (divNum === 1) {
+                legend.innerHTML = `
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span> 1º: Campeón de Primera División</span>
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-rose-500"></span> 9º - 10º: Descenso a Segunda División</span>
+                `;
+            } else {
+                legend.innerHTML = `
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-400"></span> 1º - 2º: Ascenso Directo a Primera División</span>
+                `;
+            }
+        }
+
+        document.getElementById('view-div1-btn').addEventListener('click', () => {
+            playSound('click');
+            gameState.viewingStandingsDiv = 1;
+            renderStandingsTable();
+        });
+
+        document.getElementById('view-div2-btn').addEventListener('click', () => {
+            playSound('click');
+            gameState.viewingStandingsDiv = 2;
+            renderStandingsTable();
+        });
+
+        function renderPalmaresTab() {
+            const p = gameState.player;
+            document.getElementById('career-total-apps').textContent = p.careerStats.apps;
+            document.getElementById('career-total-goals').textContent = p.careerStats.goals;
+            document.getElementById('career-total-assists').textContent = p.careerStats.assists;
+            document.getElementById('career-total-trophies').textContent = p.trophies.length;
+
+            const trophiesDiv = document.getElementById('trophies-list');
+            if (p.trophies.length > 0) {
+                trophiesDiv.innerHTML = p.trophies.map(t => `
+                    <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs font-bold text-amber-200 flex items-center gap-2">
+                        <span>${t}</span>
+                    </div>
+                `).join('');
+            }
+
+            const histBody = document.getElementById('history-tbody');
+            if (p.history.length > 0) {
+                histBody.innerHTML = p.history.map(h => `
+                    <tr>
+                        <td class="py-2.5 px-3 font-bold text-white">T${h.season}</td>
+                        <td class="py-2.5 px-3 text-slate-200">${h.club}</td>
+                        <td class="py-2.5 px-2 text-center text-xs font-bold ${h.div === 1 ? 'text-amber-400' : 'text-sky-400'}">${h.div}ª</td>
+                        <td class="py-2.5 px-2 text-center font-bold text-emerald-400">${h.ovr}</td>
+                        <td class="py-2.5 px-2 text-center text-slate-300">${h.apps}</td>
+                        <td class="py-2.5 px-2 text-center font-bold text-white">${h.goals}</td>
+                        <td class="py-2.5 px-2 text-center text-slate-300">${h.assists}</td>
+                        <td class="py-2.5 px-3 text-center font-bold text-amber-400">${h.avgRating}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        const NATIONAL_OPPONENTS = ['Brasil', 'Argentina', 'España', 'Francia', 'Alemania', 'Italia', 'Portugal', 'México', 'Colombia', 'Uruguay', 'Inglaterra'];
+
+        function renderNationalTab() {
+            const p = gameState.player;
+            const ns = p.nationalStats || (p.nationalStats = { caps: 0, goals: 0, assists: 0, trophies: 0, history: [] });
+            const flags = { Dominicana: '🇩🇴', Argentina: '🇦🇷', Brasil: '🇧🇷', España: '🇪🇸', Francia: '🇫🇷', Alemania: '🇩🇪', Inglaterra: '🏴', Italia: '🇮🇹', Portugal: '🇵🇹', Uruguay: '🇺🇾', Colombia: '🇨🇴', México: '🇲🇽', 'Estados Unidos': '🇺🇸', 'Países Bajos': '🇳🇱' };
+            document.getElementById('nationality-badge').textContent = `${flags[p.nationality] || '🏳️'} ${p.nationality}`;
+            document.getElementById('national-caps').textContent = ns.caps;
+            document.getElementById('national-goals').textContent = ns.goals;
+            document.getElementById('national-assists').textContent = ns.assists;
+            document.getElementById('national-trophies').textContent = ns.trophies;
+            const eligible = p.ovr >= 65;
+            document.getElementById('national-status').textContent = eligible
+                ? `Tu nivel actual (${p.ovr} OVR) te permite recibir convocatorias de ${p.nationality}.`
+                : `Necesitas alcanzar 65 OVR para entrar en consideración de ${p.nationality}.`;
+            const btn = document.getElementById('national-match-btn');
+            btn.disabled = !eligible || p.energy < 20;
+            btn.classList.toggle('opacity-40', btn.disabled);
+            btn.classList.toggle('cursor-not-allowed', btn.disabled);
+            const history = ns.history || [];
+            document.getElementById('national-history').innerHTML = history.length
+                ? history.slice().reverse().map(m => `<div class="flex flex-wrap justify-between gap-2 bg-slate-900/70 border border-slate-800 rounded-lg p-3"><span class="text-white font-semibold">${m.opponent}</span><span class="text-sky-300 font-bold">${m.score}</span><span class="text-slate-400">${m.competition}</span><span class="text-emerald-300">${m.rating} ⭐</span></div>`).join('')
+                : 'Todavía no has disputado partidos con tu selección.';
+        }
+
+        function playNationalMatch() {
+            const p = gameState.player;
+            const ns = p.nationalStats;
+            if (p.ovr < 65) return showToast('Necesitas al menos 65 OVR para ser convocado.', 'warning');
+            if (p.energy < 20) return showToast('No tienes suficiente energía para jugar con tu selección.', 'warning');
+            const opponent = NATIONAL_OPPONENTS[Math.floor(Math.random() * NATIONAL_OPPONENTS.length)];
+            const competition = ns.caps % 5 === 4 ? 'Clasificatorias internacionales' : 'Amistoso internacional';
+            const homeGoals = Math.floor(Math.random() * 4);
+            const awayGoals = Math.floor(Math.random() * 4);
+            const attacking = ['EI','ED','SD','DC','MCO','MI','MD'].includes(p.pos);
+            let goals = attacking && Math.random() < (p.ovr / 160) ? 1 : 0;
+            if (attacking && Math.random() < 0.14) goals++;
+            const assists = !['POR','DC'].includes(p.pos) && Math.random() < 0.25 ? 1 : 0;
+            const rating = Math.min(10, Math.max(5.5, +(6.2 + (p.ovr - 65) * 0.07 + Math.random() * 1.4).toFixed(1)));
+            ns.caps++;
+            ns.goals += goals;
+            ns.assists += assists;
+            p.energy = Math.max(0, p.energy - 20);
+            ns.history.push({ opponent, score: `${homeGoals} - ${awayGoals}`, competition, rating, goals, assists, season: gameState.season });
+            showToast(`Partido internacional completado: ${homeGoals} - ${awayGoals} ante ${opponent}.`, 'success');
+            renderAllHub();
+        }
+
+        document.getElementById('national-match-btn').addEventListener('click', playNationalMatch);
+
+        function renderAllHub() {
+            const p = gameState.player;
+            const club = getPlayerClub();
+            const divText = club.div === 1 ? 'Primera División' : 'Segunda División';
+
+            // Header superior
+            document.getElementById('hub-season-badge').textContent = `Temp. ${gameState.season}`;
+            document.getElementById('hub-matchday-text').textContent = `Jornada ${gameState.matchday} de 18 • ${divText}`;
+            document.getElementById('hub-energy-val').textContent = `${p.energy}%`;
+            document.getElementById('hub-morale-val').textContent = `${p.morale}%`;
+            document.getElementById('hub-sp-val').textContent = p.skillPoints;
+
+            // Punto de notificación en pestaña Mejora
+            const spDot = document.getElementById('tab-sp-dot');
+            if (p.skillPoints > 0) spDot.classList.remove('hidden'); else spDot.classList.add('hidden');
+
+            // Carta Izquierda
+            const cardEl = document.getElementById('hub-player-card');
+            if (p.ovr >= 85) cardEl.classList.add('fut-card-elite'); else cardEl.classList.remove('fut-card-elite');
+
+            document.getElementById('hub-ovr').textContent = p.ovr;
+            document.getElementById('hub-pos').textContent = p.pos;
+            document.getElementById('hub-name').textContent = p.name;
+            document.getElementById('hub-age').textContent = `${p.age} años`;
+            document.getElementById('hub-club-ovr-tag').textContent = `Club ${club.ovr} OVR`;
+            document.getElementById('hub-club-badge').innerHTML = generateClubBadgeSVG(club, 'w-12 h-12');
+            document.getElementById('hub-club-name').textContent = club.name;
+            document.getElementById('hub-division-badge').textContent = divText;
+
+            document.getElementById('hub-energy-bar-text').textContent = `${p.energy}%`;
+            document.getElementById('hub-energy-bar').style.width = `${p.energy}%`;
+            document.getElementById('hub-morale-bar-text').textContent = `${p.morale}%`;
+            document.getElementById('hub-morale-bar').style.width = `${p.morale}%`;
+
+            document.getElementById('hub-value').textContent = formatMoney(p.value);
+            document.getElementById('hub-wage').textContent = formatMoney(p.wage);
+
+            // Resumen Temporada Actual
+            document.getElementById('season-apps').textContent = p.seasonStats.apps;
+            document.getElementById('season-goals').textContent = p.seasonStats.goals;
+            document.getElementById('season-assists').textContent = p.seasonStats.assists;
+            const avg = p.seasonStats.apps > 0 ? (p.seasonStats.ratingSum / p.seasonStats.apps).toFixed(1) : '0.0';
+            document.getElementById('hub-avg-rating').textContent = `Media: ${avg}`;
+
+            // Previa Próximo Partido
+            const nextMatch = getNextPlayerMatch();
+            if (nextMatch) {
+                const homeClub = gameState.clubs.find(c => c.id === nextMatch.homeId);
+                const awayClub = gameState.clubs.find(c => c.id === nextMatch.awayId);
+                const isHome = homeClub.id === club.id;
+
+                document.getElementById('match-comp-label').textContent = `${divText} • Jornada ${gameState.matchday}`;
+                document.getElementById('match-venue-label').innerHTML = isHome
+                    ? `<i class="fa-solid fa-house mr-1 text-emerald-400"></i>En Casa (Local)`
+                    : `<i class="fa-solid fa-plane mr-1 text-amber-400"></i>Visitante`;
+
+                document.getElementById('home-team-badge').innerHTML = generateClubBadgeSVG(homeClub, 'w-16 h-16 sm:w-20 sm:h-20');
+                document.getElementById('home-team-name').textContent = homeClub.name;
+                document.getElementById('home-team-ovr').textContent = `${homeClub.ovr} OVR`;
+
+                document.getElementById('away-team-badge').innerHTML = generateClubBadgeSVG(awayClub, 'w-16 h-16 sm:w-20 sm:h-20');
+                document.getElementById('away-team-name').textContent = awayClub.name;
+                document.getElementById('away-team-ovr').textContent = `${awayClub.ovr} OVR`;
+            }
+
+            renderStandingsTable();
+            renderTrainingTab();
+            renderTransfersTab();
+            renderPalmaresTab();
+            renderNationalTab();
+            renderGalaTab();
+        }
+
+        // Navegación entre pestañas del Hub
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                playSound('click');
+                const targetTab = btn.dataset.tab;
+
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.className = 'tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-sport font-bold text-sm sm:text-base uppercase tracking-wide flex items-center justify-center gap-2 transition cursor-pointer text-slate-300 hover:bg-slate-800/80 relative';
+                });
+                btn.className = 'tab-btn flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-sport font-bold text-sm sm:text-base uppercase tracking-wide flex items-center justify-center gap-2 transition cursor-pointer bg-emerald-500 text-slate-950 shadow relative';
+
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById(`tab-${targetTab}`).classList.remove('hidden');
+            });
+        });
+
+        // Inicializar al cargar
+        window.onload = function () {
+            initCreationScreen();
+        };
+    </script>
+</body>
+</html>
