@@ -388,6 +388,22 @@
             </div>
         </header>
 
+        <section class="max-w-7xl w-full mx-auto px-4 pt-4">
+            <div class="glass-panel rounded-2xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-[220px]">
+                    <div class="text-xs uppercase tracking-wider font-bold text-slate-400">Estado del futbolista</div>
+                    <div id="career-status-text" class="text-sm font-bold text-emerald-300 mt-1">Disponible para jugar</div>
+                    <div id="career-status-detail" class="text-[11px] text-slate-400 mt-0.5">Sin lesiones ni sanciones</div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button id="save-career-btn" class="px-3 py-2 rounded-lg bg-emerald-500 text-slate-950 text-xs font-extrabold hover:bg-emerald-400"><i class="fa-solid fa-floppy-disk mr-1"></i> Guardar</button>
+                    <button id="load-career-btn" class="px-3 py-2 rounded-lg bg-slate-700 text-white text-xs font-bold hover:bg-slate-600"><i class="fa-solid fa-folder-open mr-1"></i> Cargar</button>
+                    <button id="export-career-btn" class="px-3 py-2 rounded-lg bg-sky-600 text-white text-xs font-bold hover:bg-sky-500"><i class="fa-solid fa-download mr-1"></i> Exportar partida</button>
+                    <label class="px-3 py-2 rounded-lg bg-slate-700 text-white text-xs font-bold hover:bg-slate-600 cursor-pointer"><i class="fa-solid fa-upload mr-1"></i> Importar partida<input id="import-career-file" type="file" accept=".json,application/json" class="hidden"></label>
+                </div>
+            </div>
+        </section>
+
         <!-- Contenido Principal Grid -->
         <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
             
@@ -997,6 +1013,10 @@
                 clubId: 'inter_galaxy',
                 nationalStats: { caps: 0, goals: 0, assists: 0, trophies: 0, history: [] },
                 energy: 100,
+                injuryMatches: 0,
+                injuryName: '',
+                yellowCards: 0,
+                suspendedMatches: 0,
                 morale: 75,
                 skillPoints: 2,
                 attrs: { pace: 74, shot: 74, pass: 69, drib: 73, def: 45, phy: 68 },
@@ -1243,6 +1263,7 @@
 
             gameState.viewingStandingsDiv = 2;
             renderAllHub();
+            saveCareer(true);
             showToast(`¡Bienvenido a ${getPlayerClub().name}, ${nameVal}!`, 'success');
         });
 
@@ -1485,6 +1506,10 @@
         // Iniciar Partido Interactivo
         document.getElementById('play-interactive-btn').addEventListener('click', () => {
             const p = gameState.player;
+            if (isPlayerUnavailable()) {
+                showToast(getUnavailableMessage(), 'warning');
+                return;
+            }
             if (p.energy < 20) {
                 showToast('Tu energía es muy baja (<20%). Pide descanso o arriesgas lesión.', 'warning');
                 return;
@@ -1635,6 +1660,10 @@
         // Simulación Rápida del Partido
         document.getElementById('quick-sim-btn').addEventListener('click', () => {
             const p = gameState.player;
+            if (isPlayerUnavailable()) {
+                showToast(getUnavailableMessage(), 'warning');
+                return;
+            }
             if (p.energy < 15) {
                 showToast('Estás agotado (<15% energía). Pide descanso para recuperarte.', 'warning');
                 return;
@@ -1754,6 +1783,7 @@
             p.careerStats.apps++;
             p.careerStats.goals += pGoals;
             p.careerStats.assists += pAssists;
+            applyCareerMatchEvents();
 
             // Energía y Moral
             p.energy = Math.max(10, p.energy - 18);
@@ -1816,6 +1846,8 @@
         function advanceMatchdayOrEndSeason() {
             // Recuperación ligera entre jornadas
             gameState.player.energy = Math.min(100, gameState.player.energy + 8);
+            if (gameState.player.injuryMatches > 0) gameState.player.injuryMatches--;
+            if (gameState.player.suspendedMatches > 0) gameState.player.suspendedMatches--;
 
             // Ventana de mitad de temporada (Jornada 9)
             if (gameState.matchday === 9) {
@@ -2406,6 +2438,7 @@
         function playNationalMatch() {
             const p = gameState.player;
             const ns = p.nationalStats;
+            if (isPlayerUnavailable()) return showToast(getUnavailableMessage(), 'warning');
             if (p.ovr < 65) return showToast('Necesitas al menos 65 OVR para ser convocado.', 'warning');
             if (p.energy < 20) return showToast('No tienes suficiente energía para jugar con tu selección.', 'warning');
             const intlCareer=getInternationalCareer();
@@ -2485,6 +2518,116 @@
 
         document.getElementById('national-match-btn').addEventListener('click', playNationalMatch);
 
+        // Guardado local, exportación e importación de carrera
+        const SAVE_KEY = 'rph_carrera_2_save_v1';
+        function saveCareer(silent = false) {
+            try {
+                if (!gameState.clubs || !gameState.clubs.length) {
+                    if (!silent) showToast('Primero debes comenzar una carrera.', 'warning');
+                    return false;
+                }
+                localStorage.setItem(SAVE_KEY, JSON.stringify(gameState));
+                if (!silent) showToast('Partida guardada correctamente en este navegador.', 'success');
+                return true;
+            } catch (err) {
+                if (!silent) showToast('No se pudo guardar. Exporta la partida como archivo JSON.', 'warning');
+                return false;
+            }
+        }
+        function loadCareer(silent = false) {
+            try {
+                const raw = localStorage.getItem(SAVE_KEY);
+                if (!raw) { if (!silent) showToast('No hay una partida guardada en este navegador.', 'warning'); return false; }
+                const data = JSON.parse(raw);
+                if (!data || !data.player || !Array.isArray(data.clubs) || !data.clubs.length) throw new Error('invalid save');
+                gameState = data;
+                gameState.player.injuryMatches = Number(gameState.player.injuryMatches || 0);
+                gameState.player.yellowCards = Number(gameState.player.yellowCards || 0);
+                gameState.player.suspendedMatches = Number(gameState.player.suspendedMatches || 0);
+                document.getElementById('creation-screen').classList.add('hidden');
+                document.getElementById('career-hub').classList.remove('hidden');
+                document.getElementById('pre-match-panel').classList.remove('hidden');
+                document.getElementById('live-match-panel').classList.add('hidden');
+                document.getElementById('post-match-panel').classList.add('hidden');
+                renderAllHub();
+                if (!silent) showToast('Partida cargada correctamente.', 'success');
+                return true;
+            } catch (err) {
+                if (!silent) showToast('El archivo guardado no es válido o está dañado.', 'warning');
+                return false;
+            }
+        }
+        function exportCareer() {
+            if (!gameState.clubs || !gameState.clubs.length) return showToast('Primero debes comenzar una carrera.', 'warning');
+            const blob = new Blob([JSON.stringify(gameState, null, 2)], {type:'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'RPH_Carrera_2_partida.json'; a.click();
+            URL.revokeObjectURL(url);
+            showToast('Copia de seguridad exportada.', 'success');
+        }
+        function isPlayerUnavailable() {
+            const p = gameState.player;
+            return (p.injuryMatches || 0) > 0 || (p.suspendedMatches || 0) > 0;
+        }
+        function getUnavailableMessage() {
+            const p = gameState.player;
+            const reasons = [];
+            if (p.injuryMatches > 0) reasons.push('lesión: ' + (p.injuryName || 'molestias') + ' (' + p.injuryMatches + ' jornada(s))');
+            if (p.suspendedMatches > 0) reasons.push('sanción (' + p.suspendedMatches + ' jornada(s))');
+            return 'No puedes jugar por ' + reasons.join(' y ') + '. Usa «Descansar jornada».';
+        }
+        function applyCareerMatchEvents() {
+            const p = gameState.player;
+            if (Math.random() < 0.045 && !p.injuryMatches) {
+                const injuries = ['Sobrecarga muscular','Esguince leve','Molestias en el tobillo','Contractura'];
+                p.injuryName = injuries[Math.floor(Math.random()*injuries.length)];
+                p.injuryMatches = 2 + Math.floor(Math.random()*3);
+                showToast('Parte médico: ' + p.injuryName + '. Estarás fuera ' + p.injuryMatches + ' jornadas.', 'warning');
+            }
+            if (Math.random() < 0.17) {
+                p.yellowCards = (p.yellowCards || 0) + 1;
+                if (p.yellowCards >= 5) {
+                    p.yellowCards = 0;
+                    p.suspendedMatches = Math.max(p.suspendedMatches || 0, 2);
+                    showToast('Acumulación de amarillas: recibiste una jornada de sanción.', 'warning');
+                } else {
+                    showToast('Tarjeta amarilla. Acumuladas: ' + p.yellowCards + '/5.', 'info');
+                }
+            } else if (Math.random() < 0.018) {
+                p.suspendedMatches = Math.max(p.suspendedMatches || 0, 2);
+                showToast('Tarjeta roja: quedas sancionado una jornada.', 'warning');
+            }
+        }
+        document.getElementById('save-career-btn').addEventListener('click', () => saveCareer(false));
+        document.getElementById('load-career-btn').addEventListener('click', () => loadCareer(false));
+        document.getElementById('export-career-btn').addEventListener('click', exportCareer);
+        document.getElementById('import-career-file').addEventListener('change', async (ev) => {
+            const file = ev.target.files && ev.target.files[0];
+            if (!file) return;
+            try {
+                const data = JSON.parse(await file.text());
+                if (!data || !data.player || !Array.isArray(data.clubs) || !data.clubs.length) throw new Error('invalid');
+                localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+                loadCareer(false);
+            } catch (err) { showToast('No se pudo importar: el JSON no corresponde a una partida RPH válida.', 'warning'); }
+            ev.target.value = '';
+        });
+
+        function renderCareerStatus() {
+            const p = gameState.player;
+            const status = document.getElementById('career-status-text');
+            const detail = document.getElementById('career-status-detail');
+            if (!status || !detail) return;
+            const parts = [];
+            if (p.injuryMatches > 0) parts.push('Lesión: ' + (p.injuryName || 'molestias') + ' · ' + p.injuryMatches + ' jornadas');
+            if (p.suspendedMatches > 0) parts.push('Sanción · ' + p.suspendedMatches + ' jornadas');
+            parts.push('Amarillas: ' + (p.yellowCards || 0) + '/5');
+            status.textContent = isPlayerUnavailable() ? 'No disponible para jugar' : 'Disponible para jugar';
+            status.className = 'text-sm font-bold mt-1 ' + (isPlayerUnavailable() ? 'text-rose-300' : 'text-emerald-300');
+            detail.textContent = parts.join(' · ');
+        }
+
         function renderAllHub() {
             const p = gameState.player;
             const club = getPlayerClub();
@@ -2556,6 +2699,8 @@
             renderPalmaresTab();
             renderNationalTab();
             renderGalaTab();
+            renderCareerStatus();
+            saveCareer(true);
         }
 
         // Navegación entre pestañas del Hub
@@ -2577,6 +2722,7 @@
         // Inicializar al cargar
         window.onload = function () {
             initCreationScreen();
+            if (localStorage.getItem(SAVE_KEY)) loadCareer(true);
         };
     </script>
 </body>
