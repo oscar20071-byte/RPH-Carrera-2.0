@@ -1587,7 +1587,7 @@
                     lm.playerGoals++;
                     lm.rating = Math.min(10.0, lm.rating + 1.1);
                     if (lm.isPlayerHome) lm.homeGoals++; else lm.awayGoals++;
-                    lm.feed.unshift(`${min}' - 🔥 ¡GOOOOL DE ${p.name.toUpperCase()}! Gran definición para adelantar a ${getPlayerClub().name}.`);
+                    lm.feed.unshift(`${min}' - 🔥 ¡GOOOOL DE ${p.name.toUpperCase()}! Gran definición para adelantar a ${lm.isNational ? lm.playerTeamName : getPlayerClub().name}.`);
                     showToast(`¡GOOOL de ${p.name}! (+1.1 Nota)`, 'success');
                 } else if (opt.type === 'assist') {
                     lm.playerAssists++;
@@ -1691,6 +1691,32 @@
 
         function finishPlayerMatch(homeGoals, awayGoals, pGoals, pAssists, finalRating) {
             const p = gameState.player;
+            if (gameState.liveMatch && gameState.liveMatch.isNational) {
+                const lm = gameState.liveMatch;
+                const ns = p.nationalStats;
+                const ratingRounded = parseFloat(finalRating.toFixed(1));
+                ns.caps++; ns.goals += pGoals; ns.assists += pAssists;
+                ns.history.push({ opponent:lm.nationalOpponent, score:`${homeGoals} - ${awayGoals}`, competition:lm.nationalCompetition, rating:ratingRounded, goals:pGoals, assists:pAssists, season:gameState.season });
+                p.energy = Math.max(10, p.energy - 18);
+                const teamWon = lm.isPlayerHome ? homeGoals > awayGoals : awayGoals > homeGoals;
+                const moraleDelta = (ratingRounded >= 7.5 ? 4 : ratingRounded >= 6.5 ? 1 : -2) + (teamWon ? 2 : 0);
+                p.morale = Math.min(100, Math.max(15, p.morale + moraleDelta));
+                let spGained = ratingRounded >= 9.3 ? 3 : (ratingRounded >= 8.2 || pGoals+pAssists >= 2 ? 2 : 1);
+                p.skillPoints += spGained;
+                document.getElementById('live-match-panel').classList.add('hidden');
+                document.getElementById('pre-match-panel').classList.add('hidden');
+                document.getElementById('post-match-panel').classList.remove('hidden');
+                document.getElementById('post-home-name').textContent = lm.homeClub.name;
+                document.getElementById('post-away-name').textContent = lm.awayClub.name;
+                document.getElementById('post-home-score').textContent = homeGoals;
+                document.getElementById('post-away-score').textContent = awayGoals;
+                document.getElementById('post-rating').textContent = ratingRounded.toFixed(1);
+                document.getElementById('post-ga').textContent = `${pGoals}G / ${pAssists}A`;
+                document.getElementById('post-sp-gained').textContent = `+${spGained} PH`;
+                document.getElementById('post-morale-change').textContent = `${moraleDelta >= 0 ? '+' : ''}${moraleDelta}%`;
+                renderAllHub();
+                return;
+            }
             const match = getNextPlayerMatch();
             const homeClub = gameState.clubs.find(c => c.id === match.homeId);
             const awayClub = gameState.clubs.find(c => c.id === match.awayId);
@@ -1749,6 +1775,12 @@
             playSound('click');
             document.getElementById('post-match-panel').classList.add('hidden');
             document.getElementById('pre-match-panel').classList.remove('hidden');
+            if (gameState.liveMatch && gameState.liveMatch.isNational) {
+                gameState.liveMatch = null;
+                renderAllHub();
+                document.querySelector('[data-tab="national"]').click();
+                return;
+            }
             advanceMatchdayOrEndSeason();
         });
 
@@ -2283,21 +2315,45 @@
             if (p.ovr < 65) return showToast('Necesitas al menos 65 OVR para ser convocado.', 'warning');
             if (p.energy < 20) return showToast('No tienes suficiente energía para jugar con tu selección.', 'warning');
             const opponent = NATIONAL_OPPONENTS[Math.floor(Math.random() * NATIONAL_OPPONENTS.length)];
-            const competition = ns.caps % 5 === 4 ? 'Clasificatorias internacionales' : 'Amistoso internacional';
-            const homeGoals = Math.floor(Math.random() * 4);
-            const awayGoals = Math.floor(Math.random() * 4);
-            const attacking = ['EI','ED','SD','DC','MCO','MI','MD'].includes(p.pos);
-            let goals = attacking && Math.random() < (p.ovr / 160) ? 1 : 0;
-            if (attacking && Math.random() < 0.14) goals++;
-            const assists = !['POR','DC'].includes(p.pos) && Math.random() < 0.25 ? 1 : 0;
-            const rating = Math.min(10, Math.max(5.5, +(6.2 + (p.ovr - 65) * 0.07 + Math.random() * 1.4).toFixed(1)));
-            ns.caps++;
-            ns.goals += goals;
-            ns.assists += assists;
-            p.energy = Math.max(0, p.energy - 20);
-            ns.history.push({ opponent, score: `${homeGoals} - ${awayGoals}`, competition, rating, goals, assists, season: gameState.season });
-            showToast(`Partido internacional completado: ${homeGoals} - ${awayGoals} ante ${opponent}.`, 'success');
-            renderAllHub();
+            const isHome = Math.random() >= 0.5;
+            const homeName = isHome ? p.nationality : opponent;
+            const awayName = isHome ? opponent : p.nationality;
+            const palette = ['#0f766e','#1d4ed8','#991b1b','#7c3aed','#a16207'];
+            const makeNationalSide = (name, idx) => ({
+                id:`nation_${name.toLowerCase().replace(/[^a-z0-9]+/g,'_')}`,
+                name, short:name.slice(0,3).toUpperCase(), ovr:Math.max(65,Math.min(96,70+Math.floor(Math.random()*25))),
+                primary:palette[idx%palette.length], secondary:'#e2e8f0'
+            });
+            const homeClub = makeNationalSide(homeName, isHome ? 0 : 1);
+            const awayClub = makeNationalSide(awayName, isHome ? 1 : 0);
+            const tournament = ns.caps % 8 === 7
+                ? (['España','Francia','Alemania','Italia','Portugal','Inglaterra','Países Bajos'].includes(p.nationality) ? 'Eurocopa' : p.nationality === 'Dominicana' ? 'Copa Oro' : 'Copa América')
+                : ns.caps % 4 === 3 ? 'Clasificatorias mundialistas' : 'Amistoso internacional';
+            const match = { competition:tournament, opponent, played:false };
+            gameState.liveMatch = {
+                match, homeClub, awayClub, isPlayerHome:isHome,
+                homeGoals:0, awayGoals:0, moment:0, minutes:[18,54,83],
+                playerGoals:0, playerAssists:0, rating:6.5,
+                feed:[`0' - ¡Comienza el partido internacional: ${homeName} vs ${awayName}!`],
+                isNational:true, nationalCompetition:tournament, nationalOpponent:opponent,
+                playerTeamName:p.nationality
+            };
+            if (Math.random() < 0.35) {
+                if (homeClub.ovr >= awayClub.ovr) {
+                    gameState.liveMatch.homeGoals++;
+                    gameState.liveMatch.feed.unshift(`9' - ⚽ Gol temprano de ${homeClub.name}.`);
+                } else {
+                    gameState.liveMatch.awayGoals++;
+                    gameState.liveMatch.feed.unshift(`11' - ⚽ Gol temprano de ${awayClub.name}.`);
+                }
+            }
+            playSound('whistle');
+            document.querySelector('[data-tab="match"]').click();
+            document.getElementById('pre-match-panel').classList.add('hidden');
+            document.getElementById('post-match-panel').classList.add('hidden');
+            document.getElementById('live-match-panel').classList.remove('hidden');
+            renderLiveMatchStep();
+            showToast(`Convocado por ${p.nationality}: ${tournament}. ¡Juega los tres momentos clave!`, 'success');
         }
 
         document.getElementById('national-match-btn').addEventListener('click', playNationalMatch);
