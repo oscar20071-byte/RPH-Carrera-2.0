@@ -1477,7 +1477,7 @@
                 ]
             };
 
-            const list = scenarios[pos] || scenarios.DEL;
+            const list = scenarios[pos] || (['DFC','LI','LD','CAI','CAD','MCD','MC','MCO','MI','MD'].includes(pos) ? scenarios.MED : scenarios.DEL);
             return list[momentIndex % list.length];
         }
 
@@ -1593,7 +1593,7 @@
                     lm.playerAssists++;
                     lm.rating = Math.min(10.0, lm.rating + 0.85);
                     if (lm.isPlayerHome) lm.homeGoals++; else lm.awayGoals++;
-                    lm.feed.unshift(`${min}' - 🎯 ¡ASISTENCIA DE ${p.name.toUpperCase()}! Jugada brillante que termina en gol.`);
+                    lm.feed.unshift(`${min}' - 🎯 ¡ASISTENCIA DE ${p.name.toUpperCase()}! Jugada brillante de ${lm.isNational ? lm.playerTeamName : getPlayerClub().name} que termina en gol.`);
                     showToast(`¡Asistencia de ${p.name}! (+0.85 Nota)`, 'success');
                 } else if (opt.type === 'save') {
                     lm.rating = Math.min(10.0, lm.rating + 0.8);
@@ -1839,7 +1839,15 @@
             { id:'midfielder', name:'Mejor Centrocampista', org:'Liga RPH', icon:'🎮', group:'Premios por posición', positions:['MCD','MC','MCO','MI','MD'] },
             { id:'forward', name:'Mejor Delantero', org:'Liga RPH', icon:'🔥', group:'Premios por posición', positions:['EI','ED','SD','DC'] },
             { id:'young', name:'Mejor Jugador Joven', org:'Liga RPH', icon:'🌱', group:'Premios jóvenes', young:true },
-            { id:'international', name:'Jugador Internacional del Año', org:'RPH Selecciones', icon:'🌐', group:'Premios de selecciones', international:true }
+            { id:'international', name:'Jugador Internacional del Año', org:'RPH Selecciones', icon:'🌐', group:'Premios de selecciones', international:true },
+            { id:'goldenshoe', name:'Bota de Oro Europea', org:'European Sports Media', icon:'👟', group:'Premios por rendimiento', scorer:true },
+            { id:'iffhsplayer', name:'IFFHS Mejor Jugador del Mundo', org:'IFFHS', icon:'🌎', group:'Premios mundiales' },
+            { id:'iffhskeeper', name:'IFFHS Mejor Portero del Mundo', org:'IFFHS', icon:'🧤', group:'Premios por posición', positions:['POR'] },
+            { id:'iffhsplaymaker', name:'IFFHS Mejor Creador de Juego', org:'IFFHS', icon:'🪄', group:'Premios por posición', creator:true },
+            { id:'iffhsyoung', name:'IFFHS Mejor Joven del Mundo', org:'IFFHS', icon:'🌱', group:'Premios jóvenes', young:true },
+            { id:'globesoccer', name:'Globe Soccer Mejor Jugador', org:'Globe Soccer Awards', icon:'🌟', group:'Premios mundiales' },
+            { id:'globeyoung', name:'Globe Soccer Mejor Joven', org:'Globe Soccer Awards', icon:'🚀', group:'Premios jóvenes', young:true },
+            { id:'fifakeeper', name:'The Best FIFA al Mejor Portero', org:'FIFA', icon:'🧤', group:'Premios por posición', positions:['POR'] }
         ];
 
         function getGalaPlayerScore(award, avgRating) {
@@ -1852,7 +1860,7 @@
             if (award.scorer) score += st.goals * 1.2;
             if (award.creator) score += st.assists * 2.0 + st.goals * 0.25;
             if (award.international) score += ns.caps * 0.8 + ns.goals * 2.0 + ns.assists * 1.4;
-            if (award.id === 'yashin') score += p.pos === 'POR' ? p.attrs.def * 0.15 + p.attrs.phy * 0.1 : -70;
+            if (award.id === 'yashin' || award.id === 'iffhskeeper' || award.id === 'fifakeeper') score += p.pos === 'POR' ? p.attrs.def * 0.15 + p.attrs.phy * 0.1 : -70;
             if (award.id === 'socrates') score += p.morale * 0.06;
             if (award.id === 'league') score += st.apps >= 10 ? 8 : -20;
             if (award.id === 'ballon' || award.id === 'thebest' || award.id === 'uefa' || award.id === 'fifpro' || award.id === 'uefaxi') score += p.ovr >= 85 ? 8 : 0;
