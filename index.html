@@ -1901,8 +1901,13 @@
                 const candidates = [];
                 if (eligible) candidates.push({ name:p.name, score:playerScore, isPlayer:true, club:playerClub.name });
                 if(award.teamAward){
-                    const rankedClubs=gameState.clubs.slice().sort((a,b)=>(b.pts*1.4+b.ovr*0.8+b.gf*0.15)-(a.pts*1.4+a.ovr*0.8+a.gf*0.15)).slice(0,4);
-                    rankedClubs.forEach((club,i)=>candidates.push({name:club.name,club:club.name,score:Math.max(40,99-i*7),isPlayer:false}));
+                    if(award.group==='Premios de entrenadores'){
+                        const managers=['Adrián Varela','Marco Bellini','Samuel Costa','Daniel Fischer','Luis Herrera','Andrés Molina'];
+                        managers.slice(0,4).forEach((manager,i)=>candidates.push({name:manager,club:['Real Madrid','Manchester City','Inter','Bayern'][i],score:96-i*6,isPlayer:false}));
+                    }else{
+                        const rankedClubs=gameState.clubs.slice().sort((a,b)=>(b.pts*1.4+b.ovr*0.8+b.gf*0.15)-(a.pts*1.4+a.ovr*0.8+a.gf*0.15)).slice(0,4);
+                        rankedClubs.forEach((club,i)=>candidates.push({name:club.name,club:club.name,score:Math.max(40,99-i*7),isPlayer:false}));
+                    }
                 } else {
                     for (let i=0; i<3; i++) {
                         const name = rivalNames[(gameState.season * 3 + i + GALA_AWARDS.indexOf(award)) % rivalNames.length];
@@ -2356,11 +2361,17 @@
           if(c.season!==gameState.season){
             c.season=gameState.season;c.fixtures=[];c.callups=0;
             const conf=INTL_CONF[p.nationality]||'CONCACAF',pool=(INTL_RIVALS[conf]||INTL_RIVALS.CONCACAF);
-            const add=(comp,stage,i)=>c.fixtures.push({id:'INT'+gameState.season+'-'+i,competition:comp,stage:stage,opponent:pool[(gameState.season+i)%pool.length],home:i%2===0,played:false});
-            add('Fecha FIFA','Amistoso',0);add('Fecha FIFA','Amistoso',1);
-            for(let i=0;i<4;i++)add('Clasificatorias mundialistas','Fase de grupos',i+2);
-            if(gameState.season%2===0){const cup=conf==='UEFA'?'Eurocopa':conf==='CONMEBOL'?'Copa América':'Copa Oro';['Grupos','Cuartos de final','Semifinal','Final'].forEach((x,i)=>add(cup,x,i+6));}
-            if(gameState.season%4===0)['Grupos','Octavos de final','Cuartos de final','Semifinal','Final'].forEach((x,i)=>add('Copa Mundial FIFA',x,i+10));
+            let serial=0;
+            const add=(comp,stage,count)=>{for(let j=0;j<count;j++){const i=serial++;c.fixtures.push({id:'INT'+gameState.season+'-'+i,competition:comp,stage:stage,opponent:pool[(gameState.season+i*2)%pool.length],home:i%2===0,played:false,result:null,outcome:null,group:'A'});}};
+            add('Fecha FIFA','Amistoso',2);
+            add('Clasificatorias mundialistas','Fase de grupos',4);
+            if(gameState.season%2===0){
+              const cup=conf==='UEFA'?'Eurocopa':conf==='CONMEBOL'?'Copa América':'Copa Oro';
+              add(cup,'Fase de grupos',3);add(cup,'Cuartos de final',1);add(cup,'Semifinal',1);add(cup,'Final',1);
+            }
+            if(gameState.season%4===0){
+              add('Copa Mundial FIFA','Fase de grupos',3);add('Copa Mundial FIFA','Octavos de final',1);add('Copa Mundial FIFA','Cuartos de final',1);add('Copa Mundial FIFA','Semifinal',1);add('Copa Mundial FIFA','Final',1);
+            }
           }
           return c;
         }
@@ -2383,19 +2394,32 @@
             if(!fixture)return showToast('Calendario internacional completado.', 'info');
             if(fixture.competition==='Copa Mundial FIFA'){
                 const qualifiers=intlCareer.fixtures.filter(f=>f.competition==='Clasificatorias mundialistas');
-                const wins=qualifiers.filter(f=>f.outcome==='Victoria').length;
-                if(wins<3){
+                if(qualifiers.filter(f=>f.outcome==='Victoria').length<3){
                     intlCareer.fixtures.filter(f=>f.competition==='Copa Mundial FIFA').forEach(f=>{f.played=true;f.outcome='No clasificado';f.result='—';});
                     renderInternationalCenter();
-                    return showToast('Tu selección no consiguió la clasificación al Mundial. Necesitaba 3 victorias en las clasificatorias.', 'warning');
+                    return showToast('Tu selección no consiguió la clasificación al Mundial: necesitaba 3 victorias en las clasificatorias.', 'warning');
                 }
             }
-            if(['Cuartos de final','Semifinal','Final','Octavos de final'].includes(fixture.stage)){
-                const earlier=intlCareer.fixtures.filter(f=>f.competition===fixture.competition&&f!==fixture&&f.played);
-                if(earlier.some(f=>f.outcome!=='Victoria')){
-                    intlCareer.fixtures.filter(f=>f.competition===fixture.competition&&!f.played).forEach(f=>{f.played=true;f.outcome='Eliminado';f.result='—';});
+            const rounds=intlCareer.fixtures.filter(f=>f.competition===fixture.competition);
+            const groupGames=rounds.filter(f=>f.stage==='Fase de grupos');
+            if(fixture.stage!=='Fase de grupos'&&groupGames.length){
+                const groupDone=groupGames.every(f=>f.played);
+                const groupWins=groupGames.filter(f=>f.outcome==='Victoria').length;
+                if(!groupDone){return showToast('Primero debes completar todos los partidos de la fase de grupos.', 'warning');}
+                if(groupWins<2){
+                    rounds.filter(f=>!f.played).forEach(f=>{f.played=true;f.outcome='Eliminado';f.result='—';});
                     renderInternationalCenter();
-                    return showToast('Tu selección quedó eliminada y no avanzó a la siguiente ronda.', 'warning');
+                    return showToast('Tu selección quedó eliminada en la fase de grupos.', 'warning');
+                }
+            }
+            const knockoutStages=['Octavos de final','Cuartos de final','Semifinal','Final'];
+            const stageIndex=knockoutStages.indexOf(fixture.stage);
+            if(stageIndex>0){
+                const previous=rounds.filter(f=>f.stage===knockoutStages[stageIndex-1]);
+                if(previous.length&&(!previous.every(f=>f.played)||previous.some(f=>f.outcome!=='Victoria'))){
+                    rounds.filter(f=>!f.played&&knockoutStages.indexOf(f.stage)>stageIndex).forEach(f=>{f.played=true;f.outcome='Eliminado';f.result='—';});
+                    renderInternationalCenter();
+                    return showToast('Tu selección no avanzó de la ronda anterior.', 'warning');
                 }
             }
             const opponent=fixture.opponent;
