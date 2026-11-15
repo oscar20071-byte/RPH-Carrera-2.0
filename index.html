@@ -2381,6 +2381,23 @@
             const intlCareer=getInternationalCareer();
             const fixture=intlCareer.fixtures.find(f=>!f.played);
             if(!fixture)return showToast('Calendario internacional completado.', 'info');
+            if(fixture.competition==='Copa Mundial FIFA'){
+                const qualifiers=intlCareer.fixtures.filter(f=>f.competition==='Clasificatorias mundialistas');
+                const wins=qualifiers.filter(f=>f.outcome==='Victoria').length;
+                if(wins<3){
+                    intlCareer.fixtures.filter(f=>f.competition==='Copa Mundial FIFA').forEach(f=>{f.played=true;f.outcome='No clasificado';f.result='—';});
+                    renderInternationalCenter();
+                    return showToast('Tu selección no consiguió la clasificación al Mundial. Necesitaba 3 victorias en las clasificatorias.', 'warning');
+                }
+            }
+            if(['Cuartos de final','Semifinal','Final','Octavos de final'].includes(fixture.stage)){
+                const earlier=intlCareer.fixtures.filter(f=>f.competition===fixture.competition&&f!==fixture&&f.played);
+                if(earlier.some(f=>f.outcome!=='Victoria')){
+                    intlCareer.fixtures.filter(f=>f.competition===fixture.competition&&!f.played).forEach(f=>{f.played=true;f.outcome='Eliminado';f.result='—';});
+                    renderInternationalCenter();
+                    return showToast('Tu selección quedó eliminada y no avanzó a la siguiente ronda.', 'warning');
+                }
+            }
             const opponent=fixture.opponent;
             const isHome=fixture.home;
             fixture.played=true;
