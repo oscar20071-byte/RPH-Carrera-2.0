@@ -1978,6 +1978,40 @@
             document.getElementById('gala-history').innerHTML = history.length ? history.slice().reverse().map(renderOne).join('') : '<p class="text-sm text-slate-400">Todavía no hay temporadas registradas.</p>';
         }
 
+        // Evolución anual: desarrollo en juventud y curva física con la edad.
+        function applySeasonalAging() {
+            const p = gameState.player;
+            const previousAge = Number(p.age) || 17;
+            p.age = previousAge + 1;
+            const gains = [];
+            const losses = [];
+            if (p.age <= 23) {
+                const candidates = p.pos === 'POR'
+                    ? ['def','phy','pass','drib']
+                    : ['DFC','LI','LD','CAI','CAD'].includes(p.pos)
+                        ? ['def','phy','pace','pass']
+                        : ['MCD','MC','MCO','MI','MD'].includes(p.pos)
+                            ? ['pass','drib','def','shot']
+                            : ['shot','pace','drib','phy'];
+                candidates.sort(() => Math.random() - 0.5).slice(0, 2).forEach(key => {
+                    if (p.attrs[key] < 99) { p.attrs[key]++; gains.push(key); }
+                });
+            } else if (p.age >= 30) {
+                const declineCount = p.age >= 36 ? 2 : 1;
+                const physical = (p.age >= 34 ? ['pace','phy','drib'] : ['pace','phy']).sort(() => Math.random() - 0.5);
+                physical.slice(0, declineCount).forEach(key => {
+                    if (p.attrs[key] > 30) { p.attrs[key]--; losses.push(key); }
+                });
+            }
+            p.ovr = calculatePlayerOVR(p.attrs, p.pos);
+            updatePlayerFinances();
+            if (gains.length) return 'Desarrollo por edad (' + p.age + ' años): +1 en ' + gains.join(' y ') + '.';
+            if (losses.length) return 'Evolución física (' + p.age + ' años): -1 en ' + losses.join(' y ') + '. El entrenamiento puede compensarlo.';
+            if (p.age === 24) return 'Has entrado en la etapa de plenitud deportiva.';
+            if (p.age === 30) return 'Comienza la etapa de veteranía: cuida tu forma física.';
+            return '';
+        }
+
         function processEndOfSeason() {
             playSound('goal');
             const p = gameState.player;
@@ -2045,6 +2079,9 @@
                 </div>
             `);
 
+            const agingMessage = applySeasonalAging();
+            if (agingMessage) seasonEvents.push('<div class="p-3 rounded-xl bg-violet-500/15 border border-violet-500/40 text-violet-200 font-semibold">📈 ' + agingMessage + '</div>');
+
             // Mostrar Modal de Fin de Temporada
             document.getElementById('modal-title').textContent = `Fin de Temporada ${gameState.season}`;
             document.getElementById('modal-subtitle').textContent = `Campeón 1ra: ${champDiv1.name} • Campeón 2da: ${champDiv2.name}`;
@@ -2056,7 +2093,6 @@
             // Preparar nueva temporada
             gameState.season++;
             gameState.matchday = 1;
-            p.age++;
             p.energy = 100;
             p.skillPoints += 2;
             p.seasonStats = { apps: 0, goals: 0, assists: 0, ratingSum: 0 };
