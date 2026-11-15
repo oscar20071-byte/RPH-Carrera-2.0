@@ -2382,6 +2382,25 @@
           '<div class="rounded-xl border border-sky-900 bg-sky-950/30 p-4 mb-4"><div class="text-xs uppercase text-sky-300 font-bold">Próximo partido</div><div class="font-sport text-2xl font-bold text-white">'+(next?next.competition:'Calendario completado')+'</div><div class="text-sm text-slate-300">'+(next?next.stage+' · '+(next.home?'Local':'Visitante')+' vs '+next.opponent:'No quedan partidos internacionales.')+'</div></div>'+
           '<h3 class="font-sport text-xl font-bold text-white mb-2">Calendario de la selección</h3><div class="space-y-2">'+fs.map((f,i)=>'<div class="flex justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3"><div><b class="text-xs text-white">'+(i+1)+'. '+f.competition+'</b><div class="text-[11px] text-slate-400">'+f.stage+' · '+(f.home?'Local':'Visitante')+' vs '+f.opponent+'</div></div><b class="text-[10px] '+(f.played?'text-emerald-300':'text-amber-300')+'">'+(f.played?'JUGADO':'PENDIENTE')+'</b></div>').join('')+'</div>'+
           '<p class="text-[11px] text-slate-500 mt-3">Las competiciones continentales aparecen cada dos temporadas y la Copa Mundial cada cuatro. Los partidos se juegan con el motor interactivo.</p>';
+          const tournaments=[...new Set(fs.filter(f=>f.competition!=='Fecha FIFA'&&f.competition!=='Clasificatorias mundialistas').map(f=>f.competition))];
+          if(tournaments.length){
+            root.innerHTML+='<h3 class="font-sport text-xl font-bold text-white mt-5 mb-2">Tablas y fases de grupos</h3>'+tournaments.map(name=>{
+              const games=fs.filter(f=>f.competition===name&&f.stage==='Fase de grupos');
+              const teams=[p.nationality,...games.map(f=>f.opponent)];
+              const rows=teams.map(team=>{
+                const played=games.filter(f=>f.played&&f.result&&(team===p.nationality||f.opponent===team));
+                let w=0,d=0,l=0,gf=0,ga=0;
+                played.forEach(f=>{const parts=(f.result||'0-0').split('-').map(Number);const own=team===p.nationality?(f.home?parts[0]:parts[1]):(f.home?parts[1]:parts[0]);const opp=team===p.nationality?(f.home?parts[1]:parts[0]):(f.home?parts[0]:parts[1]);gf+=own;ga+=opp;if(own>opp)w++;else if(own===opp)d++;else l++;});
+                return {team,w,d,l,gf,ga,pts:w*3+d};
+              }).sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga));
+              return '<div class="rounded-xl border border-slate-800 bg-slate-900 p-3 mb-3"><b class="text-sky-300 text-sm">'+name+'</b><div class="overflow-x-auto mt-2"><table class="w-full text-xs text-left"><thead class="text-slate-500"><tr><th class="p-2">Selección</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>PTS</th></tr></thead><tbody>'+rows.map(r=>'<tr class="border-t border-slate-800"><td class="p-2 text-white">'+r.team+'</td><td>'+ (r.w+r.d+r.l)+'</td><td>'+r.w+'</td><td>'+r.d+'</td><td>'+r.l+'</td><td>'+r.gf+'</td><td>'+r.ga+'</td><td class="font-bold text-amber-300">'+r.pts+'</td></tr>').join('')+'</tbody></table></div></div>';
+            }).join('');
+            root.innerHTML+='<h3 class="font-sport text-xl font-bold text-white mt-5 mb-2">Cuadro de eliminatorias</h3>'+tournaments.map(name=>{
+              const rounds=fs.filter(f=>f.competition===name&&f.stage!=='Fase de grupos');
+              if(!rounds.length)return '';
+              return '<div class="rounded-xl border border-slate-800 bg-slate-900 p-3 mb-3"><b class="text-sky-300 text-sm">'+name+'</b><div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">'+rounds.map(f=>'<div class="rounded-lg bg-slate-950 p-3"><div class="text-[10px] uppercase text-slate-500">'+f.stage+'</div><div class="text-sm text-white">'+(f.home?p.nationality:f.opponent)+' '+(f.result||'—')+' '+(f.home?f.opponent:p.nationality)+'</div><div class="text-[10px] '+(f.outcome==='Victoria'?'text-emerald-300':'text-slate-500')+'">'+(f.outcome||'Pendiente')+'</div></div>').join('')+'</div></div>';
+            }).join('');
+          }
         }
 
         function playNationalMatch() {
