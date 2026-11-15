@@ -2436,7 +2436,7 @@
             if(stageIndex>0){
                 const previous=rounds.filter(f=>f.stage===knockoutStages[stageIndex-1]);
                 if(previous.length&&(!previous.every(f=>f.played)||previous.some(f=>f.outcome!=='Victoria'))){
-                    rounds.filter(f=>!f.played&&knockoutStages.indexOf(f.stage)>stageIndex).forEach(f=>{f.played=true;f.outcome='Eliminado';f.result='—';});
+                    rounds.filter(f=>!f.played&&knockoutStages.indexOf(f.stage)>=stageIndex).forEach(f=>{f.played=true;f.outcome='Eliminado';f.result='—';});
                     renderInternationalCenter();
                     return showToast('Tu selección no avanzó de la ronda anterior.', 'warning');
                 }
