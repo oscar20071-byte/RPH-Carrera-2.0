@@ -4,7 +4,7 @@ Modo carrera de futbolista en español, ejecutado directamente en el navegador.
 
 ## Cómo jugar
 
-1. Abre la página del juego: [RPH Carrera 2.0](https://oscar20071-byte.github.io/RPH-Carrera-2.0/).
+1. Abre `index.html` desde el repositorio o publica el proyecto con GitHub Pages siguiendo las instrucciones de abajo.
 2. Crea tu futbolista, elige una de las posiciones disponibles, nacionalidad, edad inicial (15+) y club.
 3. Juega los partidos con decisiones interactivas o usa la simulación rápida.
 4. Entrena atributos, gestiona tu energía, revisa ofertas de fichaje y sigue tu carrera internacional.
