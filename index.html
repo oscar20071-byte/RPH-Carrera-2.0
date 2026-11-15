@@ -2534,12 +2534,30 @@
                 return false;
             }
         }
+        function validateAndNormalizeCareerSave(data) {
+            if (!data || typeof data !== 'object' || !data.player || typeof data.player !== 'object') return false;
+            if (!Array.isArray(data.clubs) || data.clubs.length < 2 || !data.clubs.some(c => c && c.id === data.player.clubId)) return false;
+            if (!data.schedules || !Array.isArray(data.schedules[1]) || !Array.isArray(data.schedules[2])) return false;
+            const p = data.player;
+            if (!p.attrs || !p.seasonStats || !p.careerStats) return false;
+            if (!Array.isArray(p.trophies) || !Array.isArray(p.history)) return false;
+            p.nationalStats = p.nationalStats || { caps:0, goals:0, assists:0, trophies:0, history:[] };
+            p.nationalStats.history = Array.isArray(p.nationalStats.history) ? p.nationalStats.history : [];
+            p.injuryMatches = Math.max(0, Number(p.injuryMatches) || 0);
+            p.injuryName = p.injuryName || '';
+            p.yellowCards = Math.max(0, Number(p.yellowCards) || 0);
+            p.suspendedMatches = Math.max(0, Number(p.suspendedMatches) || 0);
+            data.transferOffers = Array.isArray(data.transferOffers) ? data.transferOffers : [];
+            data.galaHistory = Array.isArray(data.galaHistory) ? data.galaHistory : [];
+            return true;
+        }
+
         function loadCareer(silent = false) {
             try {
                 const raw = localStorage.getItem(SAVE_KEY);
                 if (!raw) { if (!silent) showToast('No hay una partida guardada en este navegador.', 'warning'); return false; }
                 const data = JSON.parse(raw);
-                if (!data || !data.player || !Array.isArray(data.clubs) || !data.clubs.length) throw new Error('invalid save');
+                if (!validateAndNormalizeCareerSave(data)) throw new Error('invalid save');
                 gameState = data;
                 gameState.player.injuryMatches = Number(gameState.player.injuryMatches || 0);
                 gameState.player.yellowCards = Number(gameState.player.yellowCards || 0);
@@ -2589,13 +2607,13 @@
                 p.yellowCards = (p.yellowCards || 0) + 1;
                 if (p.yellowCards >= 5) {
                     p.yellowCards = 0;
-                    p.suspendedMatches = Math.max(p.suspendedMatches || 0, 2);
+                    p.suspendedMatches = Math.max(p.suspendedMatches || 0, 1);
                     showToast('Acumulación de amarillas: recibiste una jornada de sanción.', 'warning');
                 } else {
                     showToast('Tarjeta amarilla. Acumuladas: ' + p.yellowCards + '/5.', 'info');
                 }
             } else if (Math.random() < 0.018) {
-                p.suspendedMatches = Math.max(p.suspendedMatches || 0, 2);
+                p.suspendedMatches = Math.max(p.suspendedMatches || 0, 1);
                 showToast('Tarjeta roja: quedas sancionado una jornada.', 'warning');
             }
         }
@@ -2607,7 +2625,7 @@
             if (!file) return;
             try {
                 const data = JSON.parse(await file.text());
-                if (!data || !data.player || !Array.isArray(data.clubs) || !data.clubs.length) throw new Error('invalid');
+                if (!validateAndNormalizeCareerSave(data)) throw new Error('invalid');
                 localStorage.setItem(SAVE_KEY, JSON.stringify(data));
                 loadCareer(false);
             } catch (err) { showToast('No se pudo importar: el JSON no corresponde a una partida RPH válida.', 'warning'); }
