@@ -1698,6 +1698,19 @@
                 const ratingRounded = parseFloat(finalRating.toFixed(1));
                 ns.caps++; ns.goals += pGoals; ns.assists += pAssists;
                 ns.history.push({ opponent:lm.nationalOpponent, score:`${homeGoals} - ${awayGoals}`, competition:lm.nationalCompetition, rating:ratingRounded, goals:pGoals, assists:pAssists, season:gameState.season });
+                const intl=getInternationalCareer();
+                const completed=intl.fixtures.find(f=>f.played&&!f.result&&(lm.nationalCompetition===f.competition+' · '+f.stage));
+                if(completed){
+                    completed.result=homeGoals+'-'+awayGoals;
+                    const wonForNation=lm.isPlayerHome?homeGoals>awayGoals:awayGoals>homeGoals;
+                    completed.outcome=wonForNation?'Victoria':homeGoals===awayGoals?'Empate':'Derrota';
+                    if(completed.stage==='Final'&&wonForNation){
+                        intl.titles.push({competition:completed.competition,season:gameState.season});
+                        ns.trophies=(ns.trophies||0)+1;
+                        p.trophies.push('🏆 '+completed.competition+' (Selección · T'+gameState.season+')');
+                    }
+                }
+
                 p.energy = Math.max(10, p.energy - 18);
                 const teamWon = lm.isPlayerHome ? homeGoals > awayGoals : awayGoals > homeGoals;
                 const moraleDelta = (ratingRounded >= 7.5 ? 4 : ratingRounded >= 6.5 ? 1 : -2) + (teamWon ? 2 : 0);
@@ -1887,10 +1900,15 @@
                 const eligible = !award.teamAward && playerScore >= 48 && p.seasonStats.apps >= 4;
                 const candidates = [];
                 if (eligible) candidates.push({ name:p.name, score:playerScore, isPlayer:true, club:playerClub.name });
-                for (let i=0; i<3; i++) {
-                    const name = rivalNames[(gameState.season * 3 + i + GALA_AWARDS.indexOf(award)) % rivalNames.length];
-                    const base = 61 + Math.random()*31;
-                    candidates.push({ name, score:Math.min(99,base), isPlayer:false, club:['Real Madrid','Manchester City','Inter','Bayern','PSG'][i%5] });
+                if(award.teamAward){
+                    const rankedClubs=gameState.clubs.slice().sort((a,b)=>(b.pts*1.4+b.ovr*0.8+b.gf*0.15)-(a.pts*1.4+a.ovr*0.8+a.gf*0.15)).slice(0,4);
+                    rankedClubs.forEach((club,i)=>candidates.push({name:club.name,club:club.name,score:Math.max(40,99-i*7),isPlayer:false}));
+                } else {
+                    for (let i=0; i<3; i++) {
+                        const name = rivalNames[(gameState.season * 3 + i + GALA_AWARDS.indexOf(award)) % rivalNames.length];
+                        const base = 61 + Math.random()*31;
+                        candidates.push({ name, score:Math.min(99,base), isPlayer:false, club:['Real Madrid','Manchester City','Inter','Bayern','PSG'][i%5] });
+                    }
                 }
                 candidates.sort((a,b)=>b.score-a.score);
                 const podium = candidates.slice(0,3).map((c,i)=>({ ...c, place:i+1 }));
