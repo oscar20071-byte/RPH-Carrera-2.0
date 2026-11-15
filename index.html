@@ -1927,6 +1927,32 @@
             const playerClub = getPlayerClub();
             const results = [];
             const rivalNames = ['Mateo Silva','Luca Moretti','Noah Williams','Thiago Costa','Hugo Martín','Ethan Brooks','Santiago Pérez','Kylian Diallo','Marco Fischer'];
+            const regionalRivals = {
+                CAF: [
+                    { name:'Kofi Mensah', club:'Al Ahly' },
+                    { name:'Amadou Diop', club:'Wydad AC' },
+                    { name:'Chinedu Okafor', club:'Mamelodi Sundowns' },
+                    { name:'Youssef El Amrani', club:'Espérance de Tunis' }
+                ],
+                AFC: [
+                    { name:'Min-jun Park', club:'Urawa Red Diamonds' },
+                    { name:'Hiroto Tanaka', club:'Al Hilal' },
+                    { name:'Omar Al-Farsi', club:'Al Ain' },
+                    { name:'Wei Zhang', club:'Shanghai Port' }
+                ],
+                CONCACAF: [
+                    { name:'Diego Martínez', club:'Club América' },
+                    { name:'Tyler Brooks', club:'LAFC' },
+                    { name:'Javier Rodríguez', club:'Monterrey' },
+                    { name:'Andre Campbell', club:'Inter Miami' }
+                ],
+                CONMEBOL: [
+                    { name:'Mateo Ferreira', club:'River Plate' },
+                    { name:'João Pedro Costa', club:'Flamengo' },
+                    { name:'Santiago Benítez', club:'Boca Juniors' },
+                    { name:'Nicolás Rojas', club:'Palmeiras' }
+                ]
+            };
             GALA_AWARDS.forEach(award => {
                 const playerScore = getGalaPlayerScore(award, avgRating);
                 const eligible = !award.teamAward && playerScore >= 48 && p.seasonStats.apps >= 4 && (!award.confederation || INTL_CONF[p.nationality] === award.confederation);
@@ -1941,10 +1967,16 @@
                         rankedClubs.forEach((club,i)=>candidates.push({name:club.name,club:club.name,score:Math.max(40,99-i*7),isPlayer:false}));
                     }
                 } else {
+                    const regionalPool = award.confederation ? regionalRivals[award.confederation] : null;
                     for (let i=0; i<3; i++) {
-                        const name = rivalNames[(gameState.season * 3 + i + GALA_AWARDS.indexOf(award)) % rivalNames.length];
                         const base = 61 + Math.random()*31;
-                        candidates.push({ name, score:Math.min(99,base), isPlayer:false, club:['Real Madrid','Manchester City','Inter','Bayern','PSG'][i%5] });
+                        if (regionalPool) {
+                            const rival = regionalPool[(gameState.season * 3 + i + GALA_AWARDS.indexOf(award)) % regionalPool.length];
+                            candidates.push({ name:rival.name, score:Math.min(99,base), isPlayer:false, club:rival.club });
+                        } else {
+                            const name = rivalNames[(gameState.season * 3 + i + GALA_AWARDS.indexOf(award)) % rivalNames.length];
+                            candidates.push({ name, score:Math.min(99,base), isPlayer:false, club:['Real Madrid','Manchester City','Inter','Bayern','PSG'][i%5] });
+                        }
                     }
                 }
                 candidates.sort((a,b)=>b.score-a.score);
