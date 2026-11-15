@@ -2250,27 +2250,37 @@
         function generateTransferOffers() {
             const p = gameState.player;
             const currentClub = getPlayerClub();
+            const stats = p.seasonStats || {};
+            const apps = Number(stats.apps) || 0;
+            const goals = Number(stats.goals) || 0;
+            const assists = Number(stats.assists) || 0;
+            const formBonus = Math.min(10, apps * 0.12 + goals * 0.10 + assists * 0.07);
 
-            // Filtrar clubes distintos al actual cuyo nivel sea acorde al OVR del jugador
-            const candidates = gameState.clubs.filter(c => {
-                if (c.id === currentClub.id) return false;
-                // Clubes élite (88+) requieren al menos 79+ OVR
-                if (c.ovr >= 90) return p.ovr >= 81;
-                if (c.ovr >= 87) return p.ovr >= 78;
-                if (c.ovr >= 84) return p.ovr >= 75;
-                return true;
-            });
+            // Los clubes solo muestran interés si el nivel del jugador encaja con su plantilla.
+            const candidates = gameState.clubs
+                .filter(c => c.id !== currentClub.id && p.ovr >= c.ovr - 11 && c.ovr <= p.ovr + 15)
+                .map(club => {
+                    const gap = Math.abs(club.ovr - p.ovr);
+                    const levelFit = Math.max(0, 28 - gap * 1.55);
+                    const ambitionBonus = club.ovr > currentClub.ovr ? 5 : 0;
+                    const divisionBonus = club.div < currentClub.div ? 3 : 0;
+                    const interest = levelFit + formBonus + ambitionBonus + divisionBonus + Math.random() * 12;
+                    return { club, interest };
+                })
+                .filter(item => item.interest >= 13)
+                .sort((a, b) => b.interest - a.interest)
+                .slice(0, 3);
 
-            // Ordenar por cercanía de nivel y elegir hasta 4 ofertas
-            const shuffled = candidates.sort(() => 0.5 - Math.random()).slice(0, 4);
-            gameState.transferOffers = shuffled.map(club => {
-                const salaryOffer = Math.round(p.wage * (1.1 + (club.ovr - 78) * 0.04));
-                const role = (p.ovr >= club.ovr - 4) ? 'Estrella Titular' : (p.ovr >= club.ovr - 8) ? 'Jugador Importante' : 'Promesa / Rotación';
-                return {
-                    clubId: club.id,
-                    salary: salaryOffer,
-                    role
-                };
+            gameState.transferOffers = candidates.map(({ club }) => {
+                const role = p.ovr >= club.ovr + 2 ? 'Estrella titular'
+                    : p.ovr >= club.ovr - 3 ? 'Titular'
+                    : p.ovr >= club.ovr - 8 ? 'Jugador importante' : 'Rotación';
+                const clubFactor = 0.94 + Math.max(0, club.ovr - 70) * 0.006;
+                const performanceFactor = 1 + Math.min(0.12, formBonus / 100);
+                const salaryOffer = Math.max(1, Math.round(p.wage * clubFactor * performanceFactor * (0.98 + Math.random() * 0.12)));
+                const reason = club.ovr > currentClub.ovr + 3 ? 'Busca reforzar su plantilla' :
+                    formBonus >= 5 ? 'Tu rendimiento ha llamado su atención' : 'Considera que encajas en su proyecto';
+                return { clubId: club.id, salary: salaryOffer, role, reason };
             });
         }
 
@@ -2306,6 +2316,7 @@
                                 <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-x-4 gap-y-1">
                                     <span><i class="fa-solid fa-user-tag text-emerald-400 mr-1"></i>Rol: <strong class="text-slate-200">${offer.role}</strong></span>
                                     <span><i class="fa-solid fa-money-bill-wave text-amber-400 mr-1"></i>Salario: <strong class="text-amber-300">${formatMoney(offer.salary)}/sem</strong></span>
+                                    <span class="text-slate-500"><i class="fa-solid fa-envelope-open-text mr-1"></i>${offer.reason || 'Interés del club'}</span>
                                 </div>
                             </div>
                         </div>
