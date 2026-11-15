@@ -1899,10 +1899,10 @@
             { id:'coachiffhs', name:'Entrenador del Año IFFHS', org:'IFFHS', icon:'🎓', group:'Premios de entrenadores', teamAward:true },
             { id:'clubiffhs', name:'Mejor Club del Mundo', org:'IFFHS', icon:'🏟️', group:'Premios de clubes', teamAward:true },
             { id:'clubglobe', name:'Mejor Club Globe Soccer', org:'Globe Soccer Awards', icon:'🌍', group:'Premios de clubes', teamAward:true },
-            { id:'african', name:'Jugador Africano del Año', org:'CAF', icon:'🌍', group:'Premios continentales' },
-            { id:'asian', name:'Jugador Asiático del Año', org:'AFC', icon:'🌏', group:'Premios continentales' },
-            { id:'concacaf', name:'Jugador del Año CONCACAF', org:'CONCACAF', icon:'🌎', group:'Premios continentales' },
-            { id:'conmebol', name:'Jugador del Año CONMEBOL', org:'CONMEBOL', icon:'🌎', group:'Premios continentales' }
+            { id:'african', name:'Jugador Africano del Año', org:'CAF', icon:'🌍', group:'Premios continentales', confederation:'CAF' },
+            { id:'asian', name:'Jugador Asiático del Año', org:'AFC', icon:'🌏', group:'Premios continentales', confederation:'AFC' },
+            { id:'concacaf', name:'Jugador del Año CONCACAF', org:'CONCACAF', icon:'🌎', group:'Premios continentales', confederation:'CONCACAF' },
+            { id:'conmebol', name:'Jugador del Año CONMEBOL', org:'CONMEBOL', icon:'🌎', group:'Premios continentales', confederation:'CONMEBOL' }
         ];
 
         function getGalaPlayerScore(award, avgRating) {
@@ -1929,7 +1929,7 @@
             const rivalNames = ['Mateo Silva','Luca Moretti','Noah Williams','Thiago Costa','Hugo Martín','Ethan Brooks','Santiago Pérez','Kylian Diallo','Marco Fischer'];
             GALA_AWARDS.forEach(award => {
                 const playerScore = getGalaPlayerScore(award, avgRating);
-                const eligible = !award.teamAward && playerScore >= 48 && p.seasonStats.apps >= 4;
+                const eligible = !award.teamAward && playerScore >= 48 && p.seasonStats.apps >= 4 && (!award.confederation || INTL_CONF[p.nationality] === award.confederation);
                 const candidates = [];
                 if (eligible) candidates.push({ name:p.name, score:playerScore, isPlayer:true, club:playerClub.name });
                 if(award.teamAward){
@@ -2585,6 +2585,35 @@
             p.suspendedMatches = Math.max(0, Number(p.suspendedMatches) || 0);
             data.transferOffers = Array.isArray(data.transferOffers) ? data.transferOffers : [];
             data.galaHistory = Array.isArray(data.galaHistory) ? data.galaHistory : [];
+            // Corrige partidas antiguas: un jugador solo puede optar al premio de su confederación.
+            const continentalRules = {
+                african: { conf:'CAF', trophy:'Jugador Africano del Año' },
+                asian: { conf:'AFC', trophy:'Jugador Asiático del Año' },
+                concacaf: { conf:'CONCACAF', trophy:'Jugador del Año CONCACAF' },
+                conmebol: { conf:'CONMEBOL', trophy:'Jugador del Año CONMEBOL' }
+            };
+            const playerConfederation = INTL_CONF[p.nationality] || null;
+            Object.entries(continentalRules).forEach(([id, rule]) => {
+                if (playerConfederation === rule.conf) return;
+                p.trophies = p.trophies.filter(t => !String(t).includes(rule.trophy));
+                data.galaHistory.forEach(gala => {
+                    (gala.results || []).forEach(result => {
+                        if (result.id !== id || !Array.isArray(result.podium)) return;
+                        result.podium = result.podium.filter(candidate => !candidate.isPlayer)
+                            .map((candidate, index) => ({ ...candidate, place:index+1 }));
+                        result.playerPlace = null;
+                        result.won = false;
+                        if (result.podium.length) {
+                            result.winner = result.podium[0].name;
+                            result.winnerClub = result.podium[0].club;
+                        }
+                    });
+                });
+            });
+            data.galaHistory.forEach(gala => {
+                gala.wins = (gala.results || []).filter(result => result.won).length;
+                gala.nominations = (gala.results || []).filter(result => result.playerPlace).length;
+            });
             return true;
         }
 
