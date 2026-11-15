@@ -2297,7 +2297,7 @@
                 const salaryOffer = Math.max(1, Math.round(wageBase * clubFactor * performanceFactor * (0.98 + Math.random() * 0.12)));
                 const reason = club.ovr > currentClub.ovr + 3 ? 'Busca reforzar su plantilla' :
                     formBonus >= 5 ? 'Tu rendimiento ha llamado su atención' : 'Considera que encajas en su proyecto';
-                return { clubId: club.id, salary: salaryOffer, role, reason };
+                return { clubId: club.id, salary: salaryOffer, role, reason, contractYears: 2, negotiationUsed: false };
             });
         }
 
@@ -2374,6 +2374,7 @@
                                 <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-x-4 gap-y-1">
                                     <span><i class="fa-solid fa-user-tag text-emerald-400 mr-1"></i>Rol: <strong class="text-slate-200">${offer.role}</strong></span>
                                     <span><i class="fa-solid fa-money-bill-wave text-amber-400 mr-1"></i>Salario: <strong class="text-amber-300">${formatMoney(offer.salary)}/sem</strong></span>
+                                    <span><i class="fa-solid fa-file-signature text-sky-400 mr-1"></i>Contrato: <strong class="text-slate-200">${offer.contractYears || 2} temporadas</strong></span>
                                     <span class="text-slate-500"><i class="fa-solid fa-envelope-open-text mr-1"></i>${offer.reason || 'Interés del club'}</span>
                                 </div>
                             </div>
@@ -2381,8 +2382,9 @@
 
                         <div class="flex flex-wrap gap-2">
                             <button data-club-id="${club.id}" data-salary="${offer.salary}" data-role="${offer.role}"
-                                class="negotiate-transfer-btn px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs uppercase">
-                                Negociar
+                                ${offer.negotiationUsed ? 'disabled' : ''}
+                                class="negotiate-transfer-btn px-4 py-2.5 rounded-xl ${offer.negotiationUsed ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-amber-400 hover:bg-amber-300 text-slate-950'} font-extrabold text-xs uppercase">
+                                ${offer.negotiationUsed ? 'Negociación usada' : 'Negociar'}
                             </button>
                             <button data-club-id="${club.id}" class="decline-transfer-btn px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-slate-300 font-bold text-xs uppercase">Rechazar</button>
                             <button data-club-id="${club.id}" data-salary="${offer.salary}"
@@ -2404,18 +2406,23 @@
                 btn.addEventListener('click', () => {
                     const offer = gameState.transferOffers.find(o => o.clubId === btn.dataset.clubId);
                     const club = gameState.clubs.find(c => c.id === btn.dataset.clubId);
-                    if (!offer || !club) return;
+                    if (!offer || !club || offer.negotiationUsed) return;
                     const requested = Number(prompt('Salario semanal que deseas solicitar (oferta actual: ' + formatMoney(offer.salary) + '):', String(Math.round(offer.salary * 1.12))));
                     if (!Number.isFinite(requested) || requested <= 0) return;
                     const roleChoice = prompt('Rol que deseas solicitar: escribe "Titular" o "Jugador importante". Rol ofrecido: ' + (offer.role || 'Rotación'), offer.role || 'Titular');
                     const requestedRole = ['Titular', 'Jugador importante'].includes(roleChoice) ? roleChoice : offer.role;
+                    const yearsInput = Number(prompt('Duración del contrato: elige entre 1 y 4 temporadas.', String(offer.contractYears || 2)));
+                    if (!Number.isInteger(yearsInput) || yearsInput < 1 || yearsInput > 4) return;
                     const increase = requested / Math.max(1, offer.salary);
                     const roleDemand = requestedRole === 'Titular' && offer.role !== 'Titular' && offer.role !== 'Estrella titular';
-                    const acceptanceChance = Math.max(8, Math.min(92, 88 - Math.max(0, increase - 1) * 210 - (roleDemand ? 24 : 0) + (club.ovr >= gameState.player.ovr ? 5 : 0)));
+                    const longDealDemand = yearsInput >= 4;
+                    const acceptanceChance = Math.max(5, Math.min(92, 88 - Math.max(0, increase - 1) * 210 - (roleDemand ? 24 : 0) - (longDealDemand ? 12 : 0) + (club.ovr >= gameState.player.ovr ? 5 : 0)));
                     if (Math.random() * 100 <= acceptanceChance && requested <= offer.salary * 1.35 && (!roleDemand || gameState.player.ovr >= club.ovr - 2)) {
                         offer.salary = Math.round(requested);
                         offer.role = requestedRole;
+                        offer.contractYears = yearsInput;
                         offer.negotiated = true;
+                        offer.negotiationUsed = true;
                         renderTransfersTab();
                         showToast('El club aceptó tus condiciones. Ya puedes aceptar el fichaje.', 'success');
                     } else {
@@ -2434,9 +2441,12 @@
                     playSound('goal');
                     gameState.player.clubId = targetClubId;
                     gameState.player.wage = newSalary;
-                    gameState.player.contract = { seasonsRemaining: 2, salary: newSalary, freeAgent: false };
+                    const signedOffer = gameState.transferOffers.find(o => o.clubId === targetClubId);
+                    const signedYears = Math.max(1, Math.min(4, Number(signedOffer && signedOffer.contractYears) || 2));
+                    gameState.player.contract = { seasonsRemaining: signedYears, salary: newSalary, freeAgent: false };
                     gameState.player.morale = 85;
                     gameState.viewingStandingsDiv = targetClub.div;
+                    gameState.transferOffers = [];
                     generateTransferOffers();
 
                     renderAllHub();
