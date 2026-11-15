@@ -21,6 +21,7 @@ Modo carrera de futbolista en español, ejecutado directamente en el navegador.
 - Carrera con selección nacional, clasificatorias y torneos continentales y mundiales.
 - Gala de premios, nominaciones, podios y palmarés histórico.
 - Gestión de energía, lesiones, tarjetas amarillas, acumulación de amarillas y suspensiones.
+- Progresión por edad: desarrollo de atributos durante la juventud y evolución física gradual en la veteranía; el OVR y el valor de mercado se recalculan cada temporada.
 - Guardado automático en el navegador, botón de guardado manual, carga, exportación e importación de partidas JSON.
 
 ## Guardados
