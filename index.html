@@ -269,6 +269,16 @@
                             <option value="México">🇲🇽 México</option>
                             <option value="Estados Unidos">🇺🇸 Estados Unidos</option>
                             <option value="Países Bajos">🇳🇱 Países Bajos</option>
+                            <option value="Marruecos">🇲🇦 Marruecos</option>
+                            <option value="Senegal">🇸🇳 Senegal</option>
+                            <option value="Nigeria">🇳🇬 Nigeria</option>
+                            <option value="Ghana">🇬🇭 Ghana</option>
+                            <option value="Egipto">🇪🇬 Egipto</option>
+                            <option value="Japón">🇯🇵 Japón</option>
+                            <option value="Corea del Sur">🇰🇷 Corea del Sur</option>
+                            <option value="Arabia Saudita">🇸🇦 Arabia Saudita</option>
+                            <option value="Australia">🇦🇺 Australia</option>
+                            <option value="Qatar">🇶🇦 Qatar</option>
                         </select>
                     </div>
 
@@ -2430,7 +2440,7 @@
         function renderNationalTab() {
             const p = gameState.player;
             const ns = p.nationalStats || (p.nationalStats = { caps: 0, goals: 0, assists: 0, trophies: 0, history: [] });
-            const flags = { Dominicana: '🇩🇴', Argentina: '🇦🇷', Brasil: '🇧🇷', España: '🇪🇸', Francia: '🇫🇷', Alemania: '🇩🇪', Inglaterra: '🏴', Italia: '🇮🇹', Portugal: '🇵🇹', Uruguay: '🇺🇾', Colombia: '🇨🇴', México: '🇲🇽', 'Estados Unidos': '🇺🇸', 'Países Bajos': '🇳🇱' };
+            const flags = { Dominicana: '🇩🇴', Argentina: '🇦🇷', Brasil: '🇧🇷', España: '🇪🇸', Francia: '🇫🇷', Alemania: '🇩🇪', Inglaterra: '🏴', Italia: '🇮🇹', Portugal: '🇵🇹', Uruguay: '🇺🇾', Colombia: '🇨🇴', México: '🇲🇽', 'Estados Unidos': '🇺🇸', 'Países Bajos': '🇳🇱', Marruecos: '🇲🇦', Senegal: '🇸🇳', Nigeria: '🇳🇬', Ghana: '🇬🇭', Egipto: '🇪🇬', Japón: '🇯🇵', 'Corea del Sur': '🇰🇷', 'Arabia Saudita': '🇸🇦', Australia: '🇦🇺', Qatar: '🇶🇦' };
             document.getElementById('nationality-badge').textContent = `${flags[p.nationality] || '🏳️'} ${p.nationality}`;
             document.getElementById('national-caps').textContent = ns.caps;
             document.getElementById('national-goals').textContent = ns.goals;
@@ -2452,8 +2462,8 @@
         }
 
 
-        const INTL_CONF = {'España':'UEFA','Francia':'UEFA','Alemania':'UEFA','Italia':'UEFA','Portugal':'UEFA','Inglaterra':'UEFA','Países Bajos':'UEFA','Argentina':'CONMEBOL','Brasil':'CONMEBOL','Colombia':'CONMEBOL','Uruguay':'CONMEBOL','Dominicana':'CONCACAF','México':'CONCACAF','Estados Unidos':'CONCACAF'};
-        const INTL_RIVALS = {UEFA:['Croacia','Bélgica','Suiza','Dinamarca','Suecia','Noruega'],CONMEBOL:['Chile','Ecuador','Paraguay','Perú','Venezuela','Bolivia'],CONCACAF:['Canadá','Costa Rica','Panamá','Jamaica','Honduras','Guatemala']};
+        const INTL_CONF = {'España':'UEFA','Francia':'UEFA','Alemania':'UEFA','Italia':'UEFA','Portugal':'UEFA','Inglaterra':'UEFA','Países Bajos':'UEFA','Argentina':'CONMEBOL','Brasil':'CONMEBOL','Colombia':'CONMEBOL','Uruguay':'CONMEBOL','Dominicana':'CONCACAF','México':'CONCACAF','Estados Unidos':'CONCACAF','Marruecos':'CAF','Senegal':'CAF','Nigeria':'CAF','Ghana':'CAF','Egipto':'CAF','Japón':'AFC','Corea del Sur':'AFC','Arabia Saudita':'AFC','Australia':'AFC','Qatar':'AFC'};
+        const INTL_RIVALS = {UEFA:['Croacia','Bélgica','Suiza','Dinamarca','Suecia','Noruega'],CONMEBOL:['Chile','Ecuador','Paraguay','Perú','Venezuela','Bolivia'],CONCACAF:['Canadá','Costa Rica','Panamá','Jamaica','Honduras','Guatemala'],CAF:['Camerún','Costa de Marfil','Argelia','Sudáfrica','Mali','Burkina Faso'],AFC:['Irán','Irak','Emiratos Árabes Unidos','China','Uzbekistán','Tailandia']};
         function getInternationalCareer(){
           const p=gameState.player;
           if(!p.internationalCareer)p.internationalCareer={season:0,fixtures:[],callups:0,titles:[]};
@@ -2466,7 +2476,7 @@
             add('Fecha FIFA','Amistoso',2);
             add('Clasificatorias mundialistas','Fase de grupos',4);
             if(gameState.season%2===0){
-              const cup=conf==='UEFA'?'Eurocopa':conf==='CONMEBOL'?'Copa América':'Copa Oro';
+              const cup=conf==='UEFA'?'Eurocopa':conf==='CONMEBOL'?'Copa América':conf==='CAF'?'Copa Africana de Naciones':conf==='AFC'?'Copa Asiática':'Copa Oro';
               add(cup,'Fase de grupos',3);add(cup,'Cuartos de final',1);add(cup,'Semifinal',1);add(cup,'Final',1);
             }
             if(gameState.season%4===0){
